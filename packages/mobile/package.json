@@ -44,6 +44,10 @@
     "./tools": {
       "types": "./dist/tools.d.ts",
       "default": "./dist/tools.js"
+    },
+    "./agent-device": {
+      "types": "./dist/agent-device.d.ts",
+      "default": "./dist/agent-device.js"
     }
   },
   "files": [

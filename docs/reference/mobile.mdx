@@ -444,6 +444,22 @@ await client.apps.list(device.unstable_raw.selection);
 After the worker disposes the session, reading `unstable_raw` or `client`
 throws `INVALID_STATE`.
 
+To open a second client on the same device, outside a test (a device bridge
+or a script that attaches to the engine's [`session`](#session)), import the
+factory from `@e2e-dev/mobile/agent-device`. It is the agent-device copy the
+engine resolved, so the project needs no `agent-device` dependency of its own.
+Two agent-device versions refuse to share one daemon, so a second client
+built from another copy fails to attach.
+
+```ts
+import { createAgentDeviceClient, type AgentDeviceClient } from '@e2e-dev/mobile/agent-device';
+
+const client: AgentDeviceClient = createAgentDeviceClient({ session: 'e2e-iphone-0' });
+```
+
+The subpath exports `createAgentDeviceClient` and the `AgentDeviceClient` and
+`AgentDeviceClientConfig` types, nothing else from agent-device.
+
 #### `locator`
 
 ```ts
