@@ -32,7 +32,11 @@ export interface OperationContext {
    * abort at `timeoutMs`: bound each call by that budget yourself.
    */
   readonly signal: AbortSignal;
-  /** Remaining operation budget when the call starts. */
+  /**
+   * Remaining operation budget when the call starts. A waiting call's last
+   * locate or read can get more than its deadline leaves: as long as the
+   * slowest one it has seen.
+   */
   readonly timeoutMs: number;
   /** The run id. */
   readonly runId: string;
@@ -194,6 +198,13 @@ export interface SemanticNode {
     readonly width: number;
     readonly height: number;
   };
+  /**
+   * The point an offset into the node is measured from, in `rect`'s space,
+   * when it is not `rect`'s top-left corner: a document element's padding
+   * box, inside its border, or the corner of a box a frame clipped `rect`
+   * from. `tap({ position })` adds the offset to it.
+   */
+  readonly origin?: ViewportPoint;
   /**
    * Platform selector that addresses this node within its own document, when
    * the platform has one. It is structural, not semantic: it survives the

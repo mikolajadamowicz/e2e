@@ -15,6 +15,7 @@ import {
   performViewportSwipe,
   POST_DISPATCH_PATTERN,
   translatePwError,
+  targetPage,
   type ActionTarget,
 } from './support.ts';
 import type { ConnectionBudget } from './operation-budget.ts';
@@ -55,14 +56,16 @@ async function setChecked(target: ActionTarget, checked: boolean, operation: Con
   const verb = checked ? 'check' : 'uncheck';
   try {
     if ((await element.isChecked()) === checked) return;
-    if (!checked && (await isRadio(element))) {
+    const radio = checked ? undefined : await radioKind(element);
+    if (radio === 'native') {
       throw new EngineError('NOT_ACTIONABLE', 'uncheck cannot clear a radio button; select another radio in its group', {
         retryable: false,
       });
     }
     await element.click({ timeout: remaining() });
+    const hint = radio === 'aria' ? '; a radio usually clears only when another radio in its group is selected' : '';
     const unchanged = (detail = ''): EngineError =>
-      new EngineError('NOT_ACTIONABLE', `${verb} clicked the control but its checked state did not change${detail}`, {
+      new EngineError('NOT_ACTIONABLE', `${verb} clicked the control but its checked state did not change${detail}${hint}`, {
         retryable: false,
       });
     let firstRead = true;
@@ -88,11 +91,63 @@ async function setChecked(target: ActionTarget, checked: boolean, operation: Con
   }
 }
 
-/** Whether a checkable element is a radio, which a click can select but never clear. */
-function isRadio(element: ElementHandle<Element>): Promise<boolean> {
-  return element.evaluate(
-    (node) => (node instanceof HTMLInputElement && node.type === 'radio') || node.getAttribute('role') === 'radio',
-  );
+/**
+ * Which kind of radio a checkable element is, if any. A native radio can be
+ * selected but never cleared by a click. An ARIA radio is clicked like any
+ * control, as Playwright does: its script decides what a click does.
+ */
+function radioKind(element: ElementHandle<Element>): Promise<'native' | 'aria' | undefined> {
+  return element.evaluate((node) => {
+    if (node instanceof HTMLInputElement && node.type === 'radio') return 'native';
+    return node.getAttribute('role') === 'radio' ? 'aria' : undefined;
+  });
+}
+
+/**
+ * Attaches files to a file input, or to a control that opens a native file
+ * chooser when clicked, such as a button over a hidden input. A file input,
+ * or a node inside a `<label>` for one, takes the files directly, as
+ * Playwright retargets a label to its control. Anything else is clicked
+ * with the chooser already awaited, and fails if no chooser opens. Every
+ * step shares the operation's deadline, and a cancelled operation sets no
+ * files, even when its chooser opens after the cancel.
+ */
+async function uploadFiles(target: ActionTarget, paths: readonly string[], operation: ConnectionBudget): Promise<void> {
+  const deadline = new Deadline(operation.timeoutMs);
+  const remaining = (): number => Math.max(1, deadline.remaining());
+  const element =
+    target.kind === 'element' ? target.element : await target.locator.elementHandle({ timeout: operation.timeoutMs });
+  try {
+    if (await isFileInput(element)) {
+      operation.signal.throwIfAborted();
+      await element.setInputFiles([...paths], { timeout: remaining() });
+      return;
+    }
+    const page = await targetPage(target);
+    operation.signal.throwIfAborted();
+    const opened = page.waitForEvent('filechooser', { timeout: remaining() });
+    opened.catch(() => undefined);
+    await element.click({ timeout: remaining() });
+    const chooser = await opened.catch((cause: unknown) => {
+      if (!isPwTimeout(cause)) throw cause;
+      throw new EngineError('NOT_ACTIONABLE', 'upload clicked the control but it opened no file chooser', {
+        retryable: false,
+        cause,
+      });
+    });
+    operation.signal.throwIfAborted();
+    await chooser.setFiles([...paths], { timeout: remaining() });
+  } finally {
+    if (target.kind === 'locator') void element.dispose().catch(() => undefined);
+  }
+}
+
+/** Whether an element is a file input, or labels one, so `setInputFiles` can take it directly. */
+function isFileInput(element: ElementHandle<Element>): Promise<boolean> {
+  return element.evaluate((node) => {
+    const control = node instanceof HTMLInputElement ? node : node.closest('label')?.control;
+    return control instanceof HTMLInputElement && control.type === 'file';
+  });
 }
 
 /**
@@ -104,7 +159,7 @@ export async function dispatchLocatorAction(
   target: ActionTarget,
   action: LocatorAction,
   operation: ConnectionBudget,
-  lookup: (ref: NodeRef) => ActionTarget,
+  lookup: (ref: NodeRef) => Promise<ActionTarget>,
 ): Promise<void> {
   const timeout = operation.timeoutMs;
   const locator = asActionable(target);
@@ -161,10 +216,11 @@ export async function dispatchLocatorAction(
       return;
     }
     case 'setInputFiles':
-      await locator.setInputFiles([...action.paths], { timeout });
+      await uploadFiles(target, action.paths, operation);
       return;
     case 'dragTo': {
-      const other = lookup(action.target);
+      const other = await lookup(action.target);
+      operation.signal.throwIfAborted();
       // Playwright's own drag when both sides are locators: it waits for
       // actionability on each and reports better failures than a pointer
       // sequence can. Anything else - an observed reference on either side -

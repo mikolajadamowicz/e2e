@@ -17,8 +17,8 @@ import { Deadline } from '../internal/time.ts';
 import { didYouMean } from '../internal/suggest.ts';
 import { createScreenshotContext, type ScreenshotContext, type WrittenScreenshots } from './screenshots.ts';
 import { sessionRecordings } from './recordings.ts';
-import { resolveSecretValue, sessionSecrecy } from './secrecy.ts';
-import { resolveNavigationUrl } from '../internal/urls.ts';
+import { resolveSecretValue, sessionLedger } from './secrecy.ts';
+import { baseUrlOf, resolveNavigationUrl } from '../internal/urls.ts';
 import { FixtureRecorder } from './fixture-recording.ts';
 import type { AttemptBudget } from './budget.ts';
 import { LocatorEngine } from '../locator/engine.ts';
@@ -147,15 +147,9 @@ export function createScreenContext(wiring: ScreenWiring): ScreenContext {
 }
 
 export function createFixtures(environment: AttemptEnvironment): AttemptFixtures {
-  const { ledger, exposure } = sessionSecrecy(environment.session, environment.config.allSecrets);
+  const ledger = sessionLedger(environment.session, environment.config.allSecrets);
   const secrets: SecretResolver = {
-    async resolve(secret) {
-      const plaintext = await resolveSecretValue(secret, environment.config.allSecrets, ledger);
-      // Only a value that exists can reach the screen: a failed provider
-      // leaves nothing to taint the viewport with.
-      exposure.raise('filled');
-      return plaintext;
-    },
+    resolve: (secret) => resolveSecretValue(secret, environment.config.allSecrets, ledger),
   };
 
   const screenContext = createScreenContext({
@@ -251,7 +245,6 @@ export function createFixtures(environment: AttemptEnvironment): AttemptFixtures
     secrets,
     redact: ledger.redact,
     redactCut: ledger.redactCut,
-    exposure,
     artifacts: environment.artifacts,
     ...(environment.cache !== undefined ? { cache: environment.cache } : {}),
     ...(environment.debug !== undefined ? { debug: environment.debug } : {}),
@@ -331,7 +324,7 @@ function gateUnknownFixtures<T extends object>(fixtures: T, environment: Attempt
  * Engine-contributed fixtures: factories declare operation metadata
  * through context.fixture and must return the surface they declared. Factories
  * stay lazy and each instance belongs to one test's fixture graph; the
- * session's secrecy state outlives that graph.
+ * session's ledger outlives that graph.
  */
 function contributedFixtures(
   environment: AttemptEnvironment,
@@ -536,7 +529,7 @@ function createApp(environment: AttemptEnvironment, engine: LocatorEngine): App 
     });
 
   return {
-    baseUrl: target.app.base?.href,
+    baseUrl: target.app.base === undefined ? undefined : baseUrlOf(target.app.base),
     open: (openPath?: string) =>
       target.app.base === undefined && !engine.session.verbs.has('navigate')
         ? launchPinnedApp(openPath)

@@ -3,7 +3,7 @@
 These are the logos of the examples in `../examples.json` that are about one
 framework or one company's product, such as the starter apps and the Stripe
 example. An example's `icon` is a file name in
-this folder, which e2e.tester.army serves at `/examples/icons/`; an example
+this folder, which e2e.com serves at `/examples/icons/`; an example
 without one shows the e2e logo. When you add a logo, add the file here and
 list its source below.
 
@@ -21,11 +21,12 @@ list its source below.
 - `flutter.svg`: https://docs.flutter.dev/assets/images/branding/flutter/logo/default.svg
 - `dotnet.svg`: https://github.com/dotnet/brand/blob/main/logo/dotnet-logo.svg
 - `expo.svg`: a copy of `docs/images/integrations/expo.svg`
-- `stripe.svg`, `paypal.svg`, `paddle.svg`, `revenuecat.svg`, `clerk.svg`: the
-  marks from [Simple Icons](https://simpleicons.org) (CC0) in each brand's
-  color, https://cdn.simpleicons.org/<name>; `paypal.svg` is recolored from
-  PayPal's navy `#002991` to its brighter brand blue `#0070E0`, which reads
-  on the site's dark background
+- `stripe.svg`, `paypal.svg`, `paddle.svg`, `revenuecat.svg`, `clerk.svg`,
+  `shopify.svg`: the marks from [Simple Icons](https://simpleicons.org) (CC0)
+  in each brand's color, https://cdn.simpleicons.org/<name>; `paypal.svg` is
+  recolored from PayPal's navy `#002991` to its brighter brand blue
+  `#0070E0`, which reads on the site's dark background
 - `smolmachines.svg`: https://smolmachines.com/favicon.svg
 - `kernel.svg`: the green KERNEL wordmark from https://www.kernel.sh/brand-assets,
   https://www.kernel.sh/rebrand/logos/logo-kernel-green.svg
+- `limrun.svg`: a copy of `docs/images/integrations/limrun.svg`

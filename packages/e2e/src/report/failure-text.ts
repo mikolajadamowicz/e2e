@@ -100,17 +100,13 @@ function screenUrl(url: string): string {
 }
 
 /**
- * The attempt whose story a block tells: a flaky test's last failure; for a
- * failed or timed-out test, the last attempt that reached that verdict, so a
- * retry the run interrupted (or a serial member that retry never reached)
- * tells nothing; otherwise the final one.
+ * The attempt whose story a block tells: a flaky test's last failure;
+ * otherwise the outcome's verdict attempt, so a retry the run interrupted (or
+ * a serial member that retry never reached) tells nothing.
  */
 export function toldAttempt(result: ReportResult, final: Outcome): AttemptView {
   if (result.status === 'flaky') return final.lastFailed ?? final.final;
-  if (result.status === 'failed' || result.status === 'timed-out') {
-    return final.attempts.findLast((attempt) => attempt.status === 'failed' || attempt.status === 'timed-out') ?? final.final;
-  }
-  return final.final;
+  return final.verdict;
 }
 
 /** A step that did not pass. */
@@ -221,6 +217,37 @@ export function screenLines(told: AttemptView): string[] {
     lines.push(`Closest to the locator: ${shown.join(', ')}`);
   }
   return lines;
+}
+
+/** App errors a failure block quotes; the trace page lists every one. */
+const MAX_SUMMARY_APP_ERRORS = 3;
+
+/** The errors the app logged during an attempt, as a failure block quotes them. */
+export interface AppErrors {
+  /** How many it logged. */
+  readonly count: number;
+  /** The first few, oldest first: where each came from (`console error`) and its text, loopback origins dropped. */
+  readonly shown: readonly { readonly label: string; readonly text: string }[];
+  /** `2 more app errors logged`, when the block leaves some out. */
+  readonly more: string | undefined;
+}
+
+/**
+ * The errors a failure block quotes: the first few, oldest first, since a
+ * later error is often fallout of an earlier one. Each is redacted and
+ * clipped already, as the trace page shows it.
+ */
+export function appErrorsOf(appLog: readonly AppLogRecord[]): AppErrors {
+  const errors = appLog.filter((entry) => entry.level === 'error').toSorted((a, b) => Date.parse(a.at) - Date.parse(b.at));
+  const shown = errors.slice(0, MAX_SUMMARY_APP_ERRORS).map((entry) => ({ label: `${APP_SOURCE_TEXT[entry.source]} error`, text: shortenLoopback(entry.text) }));
+  const left = errors.length - shown.length;
+  return { count: errors.length, shown, more: left === 0 ? undefined : `${plural(left, 'more app error')} logged` };
+}
+
+/** `App console error: \`...\``, one line per error the run page quotes, then how many it left out. */
+export function appErrorLines(told: AttemptView): string[] {
+  const { shown, more } = appErrorsOf(told.appLog);
+  return [...shown.map(({ label, text }) => `App ${label}: ${code(text, MAX_DETAIL_CHARS)}`), ...(more === undefined ? [] : [more])];
 }
 
 /** Artifacts of the told attempt by id, the failure's own first, one per kind. */
@@ -484,6 +511,17 @@ function pageHref(reportPath: string, options: TracePageOptions): string | undef
   return options.pageDir === undefined ? undefined : path.posix.relative(options.pageDir, reportPath);
 }
 
+/** One error's block on a trace page: its code and phase, its message, and the facts the message does not spell out. */
+function errorLines(error: ReportError): string[] {
+  const phase = error.phase === undefined || error.phase === 'body' ? '' : ` in ${cell(error.phase, MAX_ID_CHARS)}`;
+  const lines = [`**${cell(error.code, 128)}**${phase}`, '', '```text', error.message.replaceAll('```', "'''"), '```', ''];
+  // An assertion's message already spells out expected and observed; the facts line would repeat the block above it.
+  const { expected, observed } = error.details ?? {};
+  const spelled = expected !== undefined && observed !== undefined && error.message.includes(expected) && error.message.includes(observed);
+  if (!spelled) for (const line of detailLines(error)) lines.push(`${line}  `);
+  return lines;
+}
+
 /** Renders one traced result as its own markdown page: a failed or flaky one tells its failure, a passing one its steps. */
 export function renderTracePage(report: Report1Document, result: ReportResult, final: Outcome, options: TracePageOptions = {}): string {
   const run = report.run;
@@ -502,15 +540,12 @@ export function renderTracePage(report: Report1Document, result: ReportResult, f
   const ranOn = Object.entries(told.environment ?? {});
   if (ranOn.length > 0) lines.push(`Ran on: ${ranOn.map(([name, value]) => `${cell(name, MAX_ID_CHARS)} ${code(value, MAX_CELL_CHARS)}`).join(' · ')}`, '');
 
-  const error = told.error;
-  if (error !== undefined) {
-    const phase = error.phase === undefined || error.phase === 'body' ? '' : ` in ${cell(error.phase, MAX_ID_CHARS)}`;
-    lines.push(`**${cell(error.code, 128)}**${phase}`, '', '```text', error.message.replaceAll('```', "'''"), '```', '');
-    // An assertion's message already spells out expected and observed; the facts line would repeat the block above it.
-    const { expected, observed } = error.details ?? {};
-    const spelled = expected !== undefined && observed !== undefined && error.message.includes(expected) && error.message.includes(observed);
-    if (!spelled) for (const line of detailLines(error)) lines.push(`${line}  `);
-  } else if (result.status !== 'passed') {
+  // A test that failed as `test.fail` expected tells that failure, also below an earlier attempt's.
+  const mark = result.attempts.at(-1)?.expectedFailure;
+  if (mark !== undefined) lines.push(`Expected to fail: ${cell(mark.reason)}`, '');
+  const errors = [told.error, mark?.error].filter((error): error is ReportError => error !== undefined);
+  for (const error of errors) lines.push(...errorLines(error));
+  if (errors.length === 0 && result.status !== 'passed') {
     lines.push(`_${STATUS_WORD[result.status]}: no error was recorded._`);
   }
   if (result.status !== 'passed') lines.push(`Look at: ${sourceText(failureSource(result, told), options.sourceUrl)}  `);

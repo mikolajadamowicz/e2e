@@ -2,8 +2,8 @@
 title: Web
 description: Point the web engine at your app or let the runner start it, and run a suite at several viewport sizes.
 icon: "globe"
-"og:image": "https://e2e.tester.army/docs/images/og/web.png?v=e860636537"
-"twitter:image": "https://e2e.tester.army/docs/images/og/web.png?v=e860636537"
+"og:image": "https://e2e.com/docs/images/og/web.png?v=e860636537"
+"twitter:image": "https://e2e.com/docs/images/og/web.png?v=e860636537"
 ---
 
 `@e2e-dev/web` runs tests in a browser against your app's URL. For routes,
@@ -49,7 +49,7 @@ export default {
 ```
 
 ```text
- ✓ target "web" command ready 1.20s
+ ✓ target "web" command at http://localhost:3000/ ready 1.20s
 ```
 
 The command runs without a shell: `executable` comes from `PATH` and `args`
@@ -174,7 +174,8 @@ works, but e2e redacts only a `secrets.get` password.
 ## Viewports
 
 Set a viewport on the target to run a suite at that size, or call
-`browser.setViewport()` during a test. The agent can't resize.
+`browser.setViewport()` during a test. The agent resizes with its
+[`resize_viewport`](/reference/agent#action-tools) tool.
 
 ### One size per target
 
@@ -284,6 +285,28 @@ A video keeps the size the page had when recording started. Set
 `web({ screencast: { size } })` for one fixed size. A browser provider that
 records, such as [Kernel](/integrations/kernel#recordings), records the
 whole screen instead.
+
+## Granting browser permissions
+
+Headless Chromium refuses a permission the target doesn't grant, so
+`navigator.clipboard.writeText` fails even after a click. To let
+the app use the clipboard, grant it on the target:
+
+```ts
+{
+  engine: web(),
+  app: {
+    url: 'http://localhost:3000',
+    permissions: { 'clipboard-read': 'grant', 'clipboard-write': 'grant' },
+  },
+}
+```
+
+- Every page of every attempt holds the grant, on any origin.
+- A web target takes `'grant'` only. `'deny'` and `'reset'` are
+  `INVALID_CONFIG`: leave the permission out instead.
+- The names are Playwright's, and each browser grants its own set. See
+  [`permissions`](/reference/config#permissions).
 
 ## Next
 

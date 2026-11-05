@@ -17,6 +17,8 @@ import {
   type SerializedError,
 } from '../internal/errors.ts';
 import { isRuntimeSkip, type RuntimeSkip } from '../internal/skip.ts';
+import { lateExpectedFailureError } from '../internal/expected-failure.ts';
+import { settleExpectedFailure } from './expected-failure.ts';
 import type { ExecutorAttempt } from '../agent/executor.ts';
 import { isModelUnreachable } from '../agent/error.ts';
 import { withAiTraceScope } from '../internal/ai-trace.ts';
@@ -49,12 +51,12 @@ import type {
   SerialGroupRecord,
   SerialMemberRecord,
 } from './records.ts';
-import { isFailedStatus } from './records.ts';
+import { isFailedStatus, type SerialAttemptRecord } from './records.ts';
 import { traceScreen } from './step-screens.ts';
 import { runWithRetries } from './retry.ts';
-import { runSerialUnit, type SerialAttemptRun, type SerialAttemptStart, type SerialHost, type SharedSerialSession } from './serial.ts';
+import { runSerialUnit, type SerialAttemptStart, type SerialHost, type SharedSerialSession } from './serial.ts';
 import { interruptedInPhase, interruptedSkip, pairKey, pairResult, unstartedResult } from './units.ts';
-import { adoptSecrecy, carriedSecrecy, processSecrets, registerDerivedSecrets, redactForSession, resolveSecretValue, sessionSecrecy, staticSecretLedger } from './secrecy.ts';
+import { adoptSecrets, carriedSecrets, processSecrets, registerDerivedSecrets, redactForSession, resolveSecretValue, sessionLedger, staticSecretLedger } from './secrecy.ts';
 import { isSecret } from '../secrets.ts';
 import { SessionStaging, SessionStore, targetIdentity, type SessionIdentity } from './sessions.ts';
 import { StepRecorder, type StepProgress } from './steps.ts';
@@ -74,7 +76,7 @@ export interface ExecutionEvents {
   /** One member that finished in a serial group attempt, ahead of the group. */
   onSerialMember?(groupId: string, attempt: SerialAttemptStart, member: SerialMemberRecord): void;
   /** One finished serial group attempt, ahead of the group. */
-  onSerialAttempt?(groupId: string, run: SerialAttemptRun): void;
+  onSerialAttempt?(groupId: string, attempt: SerialAttemptRecord): void;
   /** Fires before a runnable pair starts; a serial unit announces each member as it begins. */
   onPairStart?(pair: TestTargetPair): void;
   /** Live step progress of one running attempt, for reporters. */
@@ -247,8 +249,8 @@ export class TargetExecutor implements SerialHost {
   }
 
   /** Streams one finished serial group attempt (SerialHost). */
-  serialAttemptFinished(groupId: string, run: SerialAttemptRun): void {
-    this.options.events?.onSerialAttempt?.(groupId, run);
+  serialAttemptFinished(groupId: string, attempt: SerialAttemptRecord): void {
+    this.options.events?.onSerialAttempt?.(groupId, attempt);
   }
 
   /** Builds one engine operation context. */
@@ -350,8 +352,9 @@ export class TargetExecutor implements SerialHost {
 
   /**
    * Disposes the engine at worker end of life, bounded by the cleanup budget.
-   * Runs whether or not `init` did: an engine may hold resources it acquired
-   * lazily, and the contract makes `dispose` safe to call on a cold engine.
+   * Every engine runs over the protocol, whose client forwards `dispose` only
+   * once `init` was called: a worker that never initialized opened no
+   * connection, so the engine has nothing of it to release.
    */
   async dispose(options: Pick<EngineDisposeContext, 'reuseSignal'> = {}): Promise<void> {
     const disposeEngine = this.target.engine?.dispose?.bind(this.target.engine);
@@ -468,10 +471,11 @@ export class TargetExecutor implements SerialHost {
         });
         attempts.push(attempt);
         this.options.events?.onAttempt?.(pair, attempt);
-        if (isFailedStatus(attempt.status)) {
+        if (isFailedStatus(attempt.status) || attempt.expectedFailure?.error !== undefined) {
           // A failed realm is never reused, but afterAll still runs for every
           // scope whose beforeAll started in it. A body that skipped itself
-          // left the suite instance as it found it, so the next test keeps it.
+          // left the suite instance as it found it, so the next test keeps it;
+          // one that failed as expected still failed.
           await this.realms.leave(realm);
           realm = null;
         }
@@ -631,9 +635,8 @@ export class TargetExecutor implements SerialHost {
       if (sessionName !== undefined) {
         const saved = await this.options.sessionStore.load(sessionName, this.sessionIdentity);
         // The values the saving session learned come back with its state, so
-        // a stored value the app echoes is redacted here too, and its taint
-        // keeps the viewport withheld: the state may put the value on screen.
-        adoptSecrecy(sessionSecrecy(session, this.config.allSecrets), saved.secrecy);
+        // a stored value the app echoes is redacted here too.
+        adoptSecrets(sessionLedger(session, this.config.allSecrets), saved.secrets);
         await launch('restoring the session', (launchSignal) =>
           session.restoreState!(saved.state, launchOp(launchSignal)),
         );
@@ -675,9 +678,9 @@ export class TargetExecutor implements SerialHost {
         `engine ${engine?.name ?? 'none'} asked for secret ${name}, which it did not declare in its secrets`,
       );
     }
-    const secrecy = sessionSecrecy(session, this.config.allSecrets);
-    const plaintext = await resolveSecretValue(secret, this.config.allSecrets, secrecy.ledger);
-    registerDerivedSecrets(secret.name, options?.derived?.(plaintext) ?? [], secrecy.ledger);
+    const ledger = sessionLedger(session, this.config.allSecrets);
+    const plaintext = await resolveSecretValue(secret, this.config.allSecrets, ledger);
+    registerDerivedSecrets(secret.name, (await options?.derived?.(plaintext)) ?? [], ledger);
     return plaintext;
   }
 
@@ -898,7 +901,7 @@ export class TargetExecutor implements SerialHost {
       attemptId,
       currentStepId: () => steps.currentStepId,
       ...(this.config.artifactStore === undefined ? {} : { store: this.config.artifactStore }),
-      secrecy: () => (openSession === null ? undefined : sessionSecrecy(openSession, this.config.allSecrets)),
+      ledger: () => (openSession === null ? undefined : sessionLedger(openSession, this.config.allSecrets)),
       // A serial member's artifacts are filed under the group attempt in the
       // report, so that is the attempt a store must see for them.
       identity: { runId: this.options.runId, testId: pair.test.id, attemptId: shared?.attemptId ?? attemptId },
@@ -921,6 +924,8 @@ export class TargetExecutor implements SerialHost {
     let failurePhase: AttemptPhase | undefined;
     /** Set when the body (or a beforeEach) skipped the test with `test.skip(...)`. */
     let skipped: RuntimeSkip | undefined;
+    /** Why the attempt is expected to fail: the `fail` option, else the first `test.fail(...)` that marked it. */
+    let expectedFailure = pair.options.expectedFailure;
     let phase: AttemptPhase = 'launch';
     /** Moves the attempt to `next`, and the steps it records into the hook they run in (none for the body). */
     const enter = (next: AttemptPhase): void => {
@@ -965,7 +970,7 @@ export class TargetExecutor implements SerialHost {
       const evidence = await captureFailureEvidence({
         session: openSession,
         error: failure,
-        secrecy: sessionSecrecy(openSession, this.config.allSecrets),
+        ledger: sessionLedger(openSession, this.config.allSecrets),
         config: this.config,
         appOrigin: this.target.app.base?.origin,
         artifacts: artifacts.sink,
@@ -1013,7 +1018,7 @@ export class TargetExecutor implements SerialHost {
       session.screens.route((observation) =>
         steps.recordScreen(() =>
           traceScreen(observation, {
-            secrecy: sessionSecrecy(session, this.config.allSecrets),
+            ledger: sessionLedger(session, this.config.allSecrets),
             maxBytes: this.config.limits.maxObservationBytes,
             appOrigin: this.target.app.base?.origin,
           }),
@@ -1039,7 +1044,7 @@ export class TargetExecutor implements SerialHost {
               context.staging.stage(
                 name,
                 state,
-                carriedSecrecy(sessionSecrecy(session, this.config.allSecrets), this.config.allSecrets),
+                carriedSecrets(sessionLedger(session, this.config.allSecrets), this.config.allSecrets),
               );
             };
       const { fixtures } = createFixtures({
@@ -1065,7 +1070,22 @@ export class TargetExecutor implements SerialHost {
       // run on is published here and cleared when `attemptEnd` fires in `finally`.
       const soft = new SoftFailures();
       publishAttempt(
-        { attemptId, owner: 'suite', testKind: pair.test.kind, assertionTimeout: this.config.assertionTimeout, budget, soft },
+        {
+          attemptId,
+          owner: 'suite',
+          testKind: pair.test.kind,
+          assertionTimeout: this.config.assertionTimeout,
+          budget,
+          soft,
+          ...(context.kind === 'ordinary'
+            ? {
+                expectFailure: (reason: string) => {
+                  if (phase === 'afterEach') throw lateExpectedFailureError();
+                  expectedFailure ??= reason;
+                },
+              }
+            : {}),
+        },
         attemptEnd.signal,
       );
 
@@ -1262,6 +1282,11 @@ export class TargetExecutor implements SerialHost {
         // A failure that first landed in teardown has had no look yet.
         await captureEvidence();
       }
+      // The cache below still settles on what the attempt did, read off `failure`.
+      settleExpectedFailure(record, expectedFailure, {
+        serialize: (error) => serializeError(error, { phase: 'body', projectRoot: this.config.projectRoot, redact }),
+        redact,
+      });
       // A serial member's recording ends with the member, not the group.
       if (openSession !== null && shared !== undefined) {
         await this.stopRunningRecording(openSession, attemptId, record, artifacts.sink, secondaryErrors);

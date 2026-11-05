@@ -1,7 +1,9 @@
 /** Observation capture, redaction, and model serialization. */
 
+import { appNavigation } from '../cache/route.ts';
 import { OBSERVED_NAME_LIMIT, OBSERVED_TEXT_LIMIT } from '../engine/contract.ts';
 import type { Observation, SemanticNode, ViewportSize } from '../engine/surface.ts';
+import { sha256Hex } from '../internal/ids.ts';
 import type { SecretLedger } from '../internal/redact.ts';
 import { collapseText } from '../internal/text.ts';
 import { sleep } from '../internal/time.ts';
@@ -208,6 +210,7 @@ const NODE_FIELDS: { readonly [Field in NodeField]-?: FieldRedaction<Field> } = 
   attributes: (attributes, _node, redaction) =>
     Object.fromEntries(Object.entries(attributes).map(([key, value]) => [redactText(key, redaction), redactText(value, redaction)])),
   rect: keep,
+  origin: keep,
   selector: (selector, _node, redaction) => redactText(selector, redaction),
   framePath: (framePath, _node, redaction) => framePath.map((selector) => redactText(selector, redaction)),
 };
@@ -323,15 +326,12 @@ function clearPixels(observation: Observation): {
 
 /**
  * Whether requested pixels become model input, decided once per observation
- * for every tier that asks: a tainted viewport (a secret filled this attempt)
- * is denied first, since the secret may be anywhere on screen; then the
- * capture's own reasons; then the pixels themselves.
+ * for every tier that asks: the capture's own reasons, then the pixels
+ * themselves.
  */
 export function pixelsForModel(
   observation: AgentObservation,
-  tainted: boolean,
 ): { readonly pixels: ExecutorPixels } | { readonly withheld: VisionDegradation } {
-  if (tainted) return { withheld: 'PIXEL_TAINTED' };
   if (observation.pixels === undefined) {
     return { withheld: observation.kind === 'semantic' ? observation.pixelsWithheld ?? 'UNSUPPORTED_CAPABILITY' : 'UNSUPPORTED_CAPABILITY' };
   }
@@ -472,21 +472,18 @@ export function describeNode(node: RedactedNode, appOrigin?: string, ignoreState
 /**
  * A link target as a line shows it: a path when it is on the app's origin,
  * the one a navigation to a path resolves against, else the whole URL, since
- * a path on another site would send the model back to the app. Bounded by
+ * a path on another site would send the model back to the app. The path is
+ * the one a recorded navigation keeps (`appNavigation`). Bounded by
  * `boundHref`, after redaction.
  */
 function renderHref(href: string, appOrigin: string | undefined): string {
-  return boundHref(onOrigin(href, appOrigin) ? href.slice(appOrigin.length) : href);
+  return boundHref(appNavigation(href, appOrigin));
 }
 
 /** A link target as an executor tree carries it: absolute, and bounded exactly as `renderHref` bounds the line. */
 function treeHref(href: string, appOrigin: string | undefined): string {
-  return onOrigin(href, appOrigin) ? `${appOrigin}${renderHref(href, appOrigin)}` : boundHref(href);
-}
-
-/** Whether a link target is on `origin`. */
-function onOrigin(href: string, origin: string | undefined): origin is string {
-  return origin !== undefined && href.startsWith(`${origin}/`);
+  const path = appNavigation(href, appOrigin);
+  return appOrigin === undefined || path === href ? boundHref(href) : `${appOrigin}${boundHref(path)}`;
 }
 
 /**
@@ -532,16 +529,13 @@ export function observationShape(observation: AgentObservation): string | undefi
 }
 
 /**
- * FNV-1a over the image bytes: fast, and equal frames encode to equal bytes.
- * The screen presenter compares consecutive screenshots with it too.
+ * SHA-256 over the image bytes: equal frames encode to equal bytes. Hashed
+ * natively, which a per-byte loop in script cannot match on a megabyte-sized
+ * screenshot, and no 32-bit collision can read two screens as one. The screen
+ * presenter compares consecutive screenshots with it too.
  */
 export function pixelDigest(bytes: Uint8Array): string {
-  let hash = 0x811c9dc5;
-  for (const byte of bytes) {
-    hash ^= byte;
-    hash = Math.imul(hash, 0x01000193) >>> 0;
-  }
-  return hash.toString(16);
+  return sha256Hex(bytes);
 }
 
 /** `12:05`, `0:59`, `23:59:59`: a value that changes on its own once a second or minute. */

@@ -2,8 +2,8 @@
 title: "e2e/runner"
 description: "Run a test suite or an exploration, list a selection, or host e2e sessions in another test runner."
 icon: "file-lines"
-"og:image": "https://e2e.tester.army/docs/images/og/reference/runner.png?v=a4609b13d7"
-"twitter:image": "https://e2e.tester.army/docs/images/og/reference/runner.png?v=a4609b13d7"
+"og:image": "https://e2e.com/docs/images/og/reference/runner.png?v=a4609b13d7"
+"twitter:image": "https://e2e.com/docs/images/og/reference/runner.png?v=a4609b13d7"
 ---
 
 `e2e/runner` runs a suite from code without invoking the CLI. `run` executes
@@ -150,7 +150,7 @@ console.log(result.status, result.explore.ended, result.explore.findings.length)
 - `goal` is at most 2,000 characters.
 - `session` names a session a [setup test](/authentication) saves. That setup
   runs first, and the exploration starts from it, as `--session` does.
-- `maxSteps` is from 1 to 12. `timeoutMs` is from `180000` to `900000`.
+- `maxSteps` is from 1 to 100. `timeoutMs` is from `180000` to `7200000`.
 - `onEvent` receives the same events as for `run`, plus an `explore` event
   for each planning decision, step, and finding. What `e2e explore` prints
   before the run starts, such as the target it chose, arrives as a `notice`

@@ -15,6 +15,14 @@ Please read the [code of conduct](./CODE_OF_CONDUCT.md) before you post.
 Security issues go through [`SECURITY.md`](./SECURITY.md), not the issue
 tracker.
 
+## Issues
+
+- Questions and help requests go to [Discord](https://tester.army/discord),
+  not issues. Question issues are closed.
+- Bug reports need a link to a public repository or sandbox that reproduces
+  the bug, and the steps to run it. Reports without them are closed.
+- Feature requests need the proposed API, its upsides, and its downsides.
+
 ## Pull requests
 
 The changes most likely to be accepted:
@@ -24,7 +32,7 @@ The changes most likely to be accepted:
 - Engine and platform fixes (a browser, device, or OS that misbehaves)
 - Performance improvements
 - Community examples: a link to your own example repository on
-  [e2e.tester.army/examples](https://e2e.tester.army/examples), added to
+  [e2e.com/examples](https://e2e.com/examples), added to
   [`examples/examples.json`](./examples/examples.json) as
   [`examples/CONTRIBUTING.md`](./examples/CONTRIBUTING.md) describes
 
@@ -84,13 +92,14 @@ This project is a pnpm monorepo. `packages/` holds what publishes to npm,
 - `packages/web`: the published `@e2e-dev/web` browser engine
 - `packages/mobile`: the published `@e2e-dev/mobile` mobile engine
 - `packages/decision`: the decision-model executor and test filter on the public `StepExecutor` and `TestFilter` contracts
+- `packages/acp`: the `@e2e-dev/acp` executor that runs agent steps on a coding agent over ACP
 - `apps/testbed`: private dogfood suite that consumes the built packages
 - `apps/web-benchmark`: private Next.js app of hard-surface scenarios plus the e2e suites written against them
 - `apps/mobile-benchmark`: private Expo app of hard mobile surfaces plus the e2e suites written against them
 - `docs/`: the documentation pages
 - `skills/e2e/`: the agent skill shipped with the package and installed by `e2e init`
 - `skills/create-verification-skill/`: the generator of a project-local `verify-<app>` skill, installed with `npx skills add tester-army/e2e --skill create-verification-skill`
-- `skills/migrate-to-e2e/`: ports an existing Playwright, Cypress, Selenium, Detox, or Maestro suite one slice at a time, installed with `npx skills add tester-army/e2e --skill migrate-to-e2e`
+- `skills/migrate-to-e2e/`: ports an existing Playwright, Cypress, Selenium, Detox, Maestro, or TesterArmy suite one slice at a time, installed with `npx skills add tester-army/e2e --skill migrate-to-e2e`
 - `plugins/e2e/`: the Claude Code, Codex, and Cursor plugin of the three skills, installed from this repository as a marketplace with `claude plugin marketplace add tester-army/e2e` or `codex plugin marketplace add tester-army/e2e`, or copied into `~/.cursor/plugins/local/` for Cursor
 - `.dev/skills/`: the skills coding agents use to work on this repo, symlinked from `.claude/skills/` so `npx skills add tester-army/e2e` offers only `skills/*`
 
@@ -165,8 +174,8 @@ We use [changesets](https://github.com/changesets/changesets) to publish new
 versions. It handles bumping the version based on semver, writing the
 changelog, and creating tags and GitHub releases.
 
-If your change affects `e2e`, `@e2e-dev/web`, `@e2e-dev/mobile`, or
-`@e2e-dev/decision`, add a changeset:
+If your change affects `e2e`, `@e2e-dev/web`, `@e2e-dev/mobile`,
+`@e2e-dev/decision`, or `@e2e-dev/acp`, add a changeset:
 
 ```sh
 pnpm changeset
@@ -196,7 +205,11 @@ pending changesets. That PR gets no CI of its own (it is opened with
 peer ranges, builds, publishes the new versions, and creates the matching
 GitHub release. A release that published `e2e` then lists it in the MCP
 Registry (`mcp-registry.yml`); to retry a failed listing, run that workflow
-by hand with the version. `@e2edev/e2e` is the
+by hand with the version. It also publishes the skills under `skills/` to
+ClawHub as `@e2e/<skill>` (`clawhub.yml`, with the `CLAWHUB_TOKEN` secret);
+retry it the same way with `dry-run` unchecked (a dispatch only previews by
+default), and with the newest version only, since an older tag would
+publish older skills. `@e2edev/e2e` is the
 runner's retired name, and the `@e2edev` scope is the engines' and reporters'
 retired scope; both are deprecated on npm.
 
@@ -318,5 +331,5 @@ build against, and what a third-party engine builds against too. A change to
 that contract bumps all three packages together in one release, with a
 changeset for each, so an engine and a runner from the same release always
 match. Engines declare a peer range on `e2e` that points one way only
-(engine to runner, `>=x <1`), and each integration (`@e2e-dev/kernel`, `@e2e-dev/lightpanda`, `@e2e-dev/eas`, `@e2e-dev/smol`, `@e2e-dev/testmu`) does
+(engine to runner, `>=x <1`), and each integration (`@e2e-dev/kernel`, `@e2e-dev/lightpanda`, `@e2e-dev/eas`, `@e2e-dev/smol`, `@e2e-dev/testmu`, `@e2e-dev/browserstack`) does
 the same on the engines it plugs into; do not make it mutual or narrow it.

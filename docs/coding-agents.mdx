@@ -2,8 +2,8 @@
 title: Coding agents
 description: Give a coding agent the skill, a live app session, and reports it can use to write and debug tests.
 icon: "robot"
-"og:image": "https://e2e.tester.army/docs/images/og/coding-agents.png?v=c6990935d7"
-"twitter:image": "https://e2e.tester.army/docs/images/og/coding-agents.png?v=c6990935d7"
+"og:image": "https://e2e.com/docs/images/og/coding-agents.png?v=c6990935d7"
+"twitter:image": "https://e2e.com/docs/images/og/coding-agents.png?v=c6990935d7"
 ---
 
 A coding agent such as Claude Code, Codex, or Cursor can write, run, and
@@ -95,6 +95,26 @@ claude plugin update e2e@e2e
 
 ```bash Codex
 codex plugin marketplace upgrade e2e
+```
+</CodeGroup>
+
+</Accordion>
+
+<Accordion title="Install in OpenClaw or Hermes Agent">
+
+The three skills are published on [ClawHub](https://clawhub.ai/) under
+`@e2e`. Hermes Agent reads the repository as a tap:
+
+<CodeGroup>
+```bash OpenClaw
+openclaw skills install @e2e/e2e
+openclaw skills install @e2e/create-verification-skill
+openclaw skills install @e2e/migrate-to-e2e
+```
+
+```bash Hermes
+hermes skills tap add tester-army/e2e
+hermes skills install tester-army/e2e/e2e
 ```
 </CodeGroup>
 
@@ -236,7 +256,7 @@ from poteto's pstack, with e2e in place of a hand-rolled harness.
 ## Migrate an existing suite
 
 The `migrate-to-e2e` skill moves a Playwright, Cypress, Selenium, Detox,
-or Maestro suite to e2e one slice per session. The old suite keeps
+Maestro, or TesterArmy suite to e2e one slice per session. The old suite keeps
 running beside the new tests, so you can stop after any session.
 
 <CodeGroup>
@@ -259,8 +279,8 @@ records progress for the next session. Optionally, the agent plants a temporary 
 in the app, such as a wrong checkout total, and checks whether both
 suites fail on it. The agent deletes an old test only when you confirm. It first reads the migration guide for your runner:
 [Playwright](/migrate/playwright), [Cypress](/migrate/cypress),
-[Selenium](/migrate/selenium), [Detox](/migrate/detox), or
-[Maestro](/migrate/maestro).
+[Selenium](/migrate/selenium), [Detox](/migrate/detox),
+[Maestro](/migrate/maestro), or [TesterArmy](/migrate/testerarmy).
 
 ## Next
 

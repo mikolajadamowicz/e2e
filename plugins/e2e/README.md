@@ -14,8 +14,8 @@ Android emulator, or phone.
   skill and feature map on top of e2e. Invoke it with
   `/e2e:create-verification-skill` in Claude Code or
   `$e2e:create-verification-skill` in Codex. It loads only when invoked.
-- **migrate-to-e2e**: port a Playwright, Cypress, Selenium, Detox, or Maestro
-  suite to e2e one slice at a time, with the old suite running beside the
+- **migrate-to-e2e**: port a Playwright, Cypress, Selenium, Detox, Maestro,
+  or TesterArmy suite to e2e one slice at a time, with the old suite running beside the
   new one and a `MIGRATION.md` file the next session resumes from.
 
 ## Install
@@ -101,11 +101,11 @@ Writing and running tests through the CLI does not require an MCP connection.
   failure codes; never test content, app content, or credentials) to a
   PostHog project run by the e2e maintainers. Turn it off with
   `E2E_TELEMETRY_DISABLED=1`, `DO_NOT_TRACK=1`, or `npx e2e telemetry disable`.
-  See [Telemetry](https://e2e.tester.army/docs/telemetry).
+  See [Telemetry](https://e2e.com/docs/telemetry).
 - `npx e2e feedback` sends a report to the same project. The skill shows the
   report first and sends it only when you agree.
 - Agent steps send the redacted screen to the model provider you configure.
-  See [Security](https://e2e.tester.army/docs/reference/security) for what
+  See [Security](https://e2e.com/docs/reference/security) for what
   is redacted.
 
 ## Maintain the package
@@ -124,4 +124,4 @@ is outside this package.
 The initial Codex manifest, icons, and skill UI metadata came from
 [tester-army/plugins at 9954005](https://github.com/tester-army/plugins/tree/9954005c9688bb1928bdaad20cb8098160406931/plugins/e2e).
 The shared skill content follows this monorepo's current sources.
-Docs: <https://e2e.tester.army/docs>.
+Docs: <https://e2e.com/docs>.

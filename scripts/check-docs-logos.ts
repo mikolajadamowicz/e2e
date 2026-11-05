@@ -5,7 +5,8 @@
  * (except an `index.mdx`) is about one vendor, so it needs both logos:
  *
  * - a sidebar icon: `icon:` in the frontmatter names a file under
- *   `/images/icons/`, the black silhouette the docs site greys out;
+ *   `/images/icons/`, the black silhouette the docs site greys out (our own
+ *   `testerarmy.png` is the one grey-shaded exception, see authoring-docs);
  * - a card logo: every `<Card>` on any page that links to it names a file
  *   under `/images/integrations/`, the brand-colored mark.
  *
@@ -23,7 +24,7 @@ import { fileURLToPath } from 'node:url';
 
 const ROOT = fileURLToPath(new URL('..', import.meta.url));
 const DOCS = join(ROOT, 'docs');
-const SITE = 'https://e2e.tester.army/docs';
+const SITE = 'https://e2e.com/docs';
 const SIDEBAR_DIR = '/images/icons/';
 const CARD_DIR = '/images/integrations/';
 
