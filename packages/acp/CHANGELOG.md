@@ -1,5 +1,13 @@
 # @e2e-dev/acp
 
+## 0.1.2
+
+### Patch Changes
+
+- [#1626](https://github.com/tester-army/e2e/pull/1626) [`c9783a0`](https://github.com/tester-army/e2e/commit/c9783a0666ffea9af4d156d1154657fb94b4af1b) Thanks [@Varshith-Kali](https://github.com/Varshith-Kali)! - Fix `WORKER_CRASH (EPERM)` on Windows when an ACP session ends: a failed session directory removal no longer crashes the worker and is retried after the agent exits.
+
+- [#1666](https://github.com/tester-army/e2e/pull/1666) [`795f71f`](https://github.com/tester-army/e2e/commit/795f71f2ffa6d2d6d38d0de512ce6862b5f6c7dd) Thanks [@okwasniewski](https://github.com/okwasniewski)! - Bump runtime dependencies: `@clack/prompts` 1.9.0, `oxc-parser`, `oxc-transform`, and `@oxc-project/runtime` 0.158.0, `@ai-sdk/provider` 4.0.37, and `@agentclientprotocol/sdk` 2.5.0 (ACP schema v1.30.0).
+
 ## 0.1.1
 
 ### Patch Changes

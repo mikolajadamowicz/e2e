@@ -1,5 +1,11 @@
 # @e2e-dev/limrun
 
+## 0.2.5
+
+### Patch Changes
+
+- [#1663](https://github.com/tester-army/e2e/pull/1663) [`322f00e`](https://github.com/tester-army/e2e/commit/322f00e55d8b2c8f834c150d5d239873bdad1daa) Thanks [@KrzysztofMoch](https://github.com/KrzysztofMoch)! - A Limrun device lease no longer names an agent-device `session` in its client configuration, which `@e2e-dev/mobile` rejected with `ENGINE_FAILURE` ("returned a lease without an id and a daemon baseUrl or JSON client configuration") before any test or session could start. The provider still allocates and renews the lease under its own session.
+
 ## 0.2.4
 
 ### Patch Changes
