@@ -375,8 +375,13 @@ export const POINTER_ACTION_KINDS = [
  *   `Delete`, `ArrowUp`..., `Home`, `End`, `PageUp`, `PageDown`, `Insert`,
  *   `Space`, `F1`..`F12`).
  * - Any single printable character (`a`, `A`, `1`, `$`), typed as itself.
+ * - TV remote buttons: those in `REMOTE_KEY_NAMES` (`menu`, `home`, `play`,
+ *   `pause`, `play-pause`, `stop`, `rewind`, `fast-forward`, `next`,
+ *   `previous`), lowercase so none is mistaken for the keyboard key of the
+ *   same word (`home` is the remote's Home button, `Home` the keyboard's line
+ *   start). A remote button takes no modifier.
  *
- * `Control+a`, `Shift+Tab`, `Enter`, `$`. A platform without a key maps it
+ * `Control+a`, `Shift+Tab`, `Enter`, `$`, `menu`. A platform without a key maps it
  * or throws `UNSUPPORTED_CAPABILITY`; it never reinterprets the spelling.
  * `parseKey` is the one parser, exported so no engine carries its own.
  */
@@ -416,12 +421,19 @@ export const KEY_NAMES = [
 ] as const;
 export type KeyName = (typeof KEY_NAMES)[number];
 
-/** One parsed `press` key: its modifiers and either a named key or a single character. */
+/** The TV remote buttons of the key grammar; an engine with no remote refuses them with `UNSUPPORTED_CAPABILITY`. */
+export const REMOTE_KEY_NAMES = ['menu', 'home', 'play', 'pause', 'play-pause', 'stop', 'rewind', 'fast-forward', 'next', 'previous'] as const;
+export type RemoteKeyName = (typeof REMOTE_KEY_NAMES)[number];
+
+/** One parsed `press` key: its modifiers and either a named key, a single character, or a TV remote button. */
 export interface ParsedKey {
-  /** Modifiers, in the order written. */
+  /** Modifiers, in the order written; always empty for a remote button. */
   readonly modifiers: readonly KeyModifier[];
   /** The key itself. */
-  readonly key: { readonly kind: 'named'; readonly name: KeyName } | { readonly kind: 'char'; readonly char: string };
+  readonly key:
+    | { readonly kind: 'named'; readonly name: KeyName }
+    | { readonly kind: 'char'; readonly char: string }
+    | { readonly kind: 'remote'; readonly name: RemoteKeyName };
 }
 
 const MODIFIER_SET: ReadonlySet<unknown> = new Set(KEY_MODIFIERS);
@@ -434,11 +446,12 @@ export function isKeyModifier(value: unknown): value is KeyModifier {
 /** Control, format, surrogate, private-use, unassigned, and line or paragraph separators: never a printable key. */
 const NON_PRINTABLE = /[\p{Cc}\p{Cf}\p{Cs}\p{Co}\p{Cn}\p{Zl}\p{Zp}]/u;
 const NAME_SET: ReadonlySet<string> = new Set(KEY_NAMES);
+const REMOTE_NAME_SET: ReadonlySet<string> = new Set(REMOTE_KEY_NAMES);
 
 /**
  * Parses a `press` key against the grammar; `undefined` when it does not
- * conform (an unknown name, a repeated modifier, a bare modifier, or several
- * characters). A literal `+` is the character after the last separator, so
+ * conform (an unknown name, a repeated modifier, a bare modifier, several
+ * characters, or a modifier on a remote button). A literal `+` is the character after the last separator, so
  * `Shift++` presses `+` with Shift held.
  */
 export function parseKey(key: string): ParsedKey | undefined {
@@ -455,6 +468,7 @@ export function parseKey(key: string): ParsedKey | undefined {
     modifiers.push(part);
   }
   if (NAME_SET.has(last)) return { modifiers, key: { kind: 'named', name: last as KeyName } };
+  if (REMOTE_NAME_SET.has(last)) return modifiers.length === 0 ? { modifiers, key: { kind: 'remote', name: last as RemoteKeyName } } : undefined;
   if ([...last].length === 1 && !NON_PRINTABLE.test(last)) return { modifiers, key: { kind: 'char', char: last } };
   return undefined;
 }

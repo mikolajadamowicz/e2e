@@ -4,6 +4,7 @@ import {
   isEngineHandle,
   LOCATOR_ACTION_KINDS,
   parseKey,
+  REMOTE_KEY_NAMES,
   type Engine,
   type EngineCleanupContext,
   type EngineSnapshot,
@@ -282,6 +283,15 @@ describe('parseKey', () => {
       modifiers: ['ControlOrMeta', 'Shift'],
       key: { kind: 'named', name: 'ArrowLeft' },
     });
+  });
+
+  it('parses every TV remote button, lowercase and without modifiers, apart from the keyboard key of the same word', () => {
+    for (const name of REMOTE_KEY_NAMES) {
+      expect(parseKey(name), name).toEqual({ modifiers: [], key: { kind: 'remote', name } });
+      expect(parseKey(`Shift+${name}`), name).toBeUndefined();
+    }
+    expect(parseKey('Home')).toEqual({ modifiers: [], key: { kind: 'named', name: 'Home' } });
+    for (const key of ['Menu', 'Play', 'MENU', 'channel-up', 'media-play']) expect(parseKey(key), key).toBeUndefined();
   });
 
   it('treats a trailing + as the plus character', () => {

@@ -734,7 +734,7 @@ describe('press key grammar', () => {
   it('rejects a key outside the grammar in the locator tier before the locator is resolved', async () => {
     const { engine, locates, performed } = keyboard();
     const { fixtures } = runtime(engine);
-    for (const key of ['Ctrl+a', 'Enter+Shift', '', 'ab', 'Shift']) {
+    for (const key of ['Ctrl+a', 'Enter+Shift', '', 'ab', 'Shift', 'Menu', 'channel-up', 'Shift+menu']) {
       await expect(fixtures.screen.getByLabel('Name').press(key)).rejects.toMatchObject({
         code: 'INVALID_ARGUMENT',
         message: expect.stringContaining(`press key ${JSON.stringify(key)} is not a key`),
@@ -744,7 +744,8 @@ describe('press key grammar', () => {
     expect(performed).toEqual([]);
     await fixtures.screen.getByLabel('Name').press('Control+a');
     await fixtures.screen.getByLabel('Name').press('Shift++');
-    expect(performed).toEqual(['press:Control+a', 'press:Shift++']);
+    await fixtures.screen.getByLabel('Name').press('menu');
+    expect(performed).toEqual(['press:Control+a', 'press:Shift++', 'press:menu']);
   });
 
   it('rejects a key outside the grammar in the agent dispatcher before any engine call', async () => {

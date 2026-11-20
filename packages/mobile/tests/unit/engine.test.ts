@@ -949,6 +949,7 @@ describe('observation', () => {
     ['tap at point', 'interactions.press', (h, op) => h.engine.performAt!({ x: 10, y: 10 }, { kind: 'tap' }, op)],
     ['type', 'interactions.type', (h, op) => h.engine.keyboard!.type('hi', { replace: false }, op)],
     ['press', 'command.keyboard', (h, op) => h.engine.keyboard!.press('Enter', op)],
+    ['remote key', 'command.tvRemote', (h, op) => h.engine.keyboard!.press('menu', op)],
     ['keyboard dismiss', 'command.keyboard', (h, op) => h.engine.keyboard!.dismiss!(op)],
     ['back', 'command.back', (h, op) => h.engine.session!.back!(op)],
     ['open link', 'apps.open', (h, op) => h.engine.session!.openLink!('e2e-benchmark://orders/42', op)],
@@ -1381,6 +1382,42 @@ describe('perform', () => {
     const before = h.fake.calls.length;
     await h.engine.perform!(search.ref, { kind: 'press', key }, operation());
     expect(h.fake.calls.slice(before).map((call) => call.method)).toEqual([key === 'Enter' ? 'command.keyboard' : 'interactions.type']);
+  });
+
+  it.each([
+    ['menu', 'menu'],
+    ['home', 'home'],
+    ['play', 'media-play'],
+    ['pause', 'media-pause'],
+    ['play-pause', 'media-play-pause'],
+    ['stop', 'media-stop'],
+    ['rewind', 'media-rewind'],
+    ['fast-forward', 'media-fast-forward'],
+    ['next', 'media-next'],
+    ['previous', 'media-previous'],
+  ])('presses the %s remote key as the agent-device tv-remote button %s', async (key, button) => {
+    const h = harness();
+    await openAttempt(h);
+    const search = await observed(h, 'Search');
+    const before = h.fake.calls.length;
+    await h.engine.keyboard!.press(key, operation());
+    // A remote button goes to the device, so an unfocused field is not tapped first.
+    await h.engine.perform!(search.ref, { kind: 'press', key }, operation());
+    expect(h.fake.calls.slice(before).map((call) => [call.method, call.args])).toEqual([
+      ['command.tvRemote', { button }],
+      ['command.tvRemote', { button }],
+    ]);
+  });
+
+  it('fails a remote key the device has no button for with UNSUPPORTED_CAPABILITY', async () => {
+    const h = harness();
+    await openAttempt(h);
+    h.fake.respond('command.tvRemote', () => {
+      throw new AppError('UNSUPPORTED_OPERATION', 'tv-remote is not supported on this device');
+    });
+    await expect(h.engine.keyboard!.press('menu', operation())).rejects.toMatchObject({ code: 'UNSUPPORTED_CAPABILITY' });
+    const search = await observed(h, 'Search');
+    await expect(h.engine.perform!(search.ref, { kind: 'press', key: 'play' }, operation())).rejects.toMatchObject({ code: 'UNSUPPORTED_CAPABILITY' });
   });
 
   it.each(['e2', ''])('presses the innermost control even when the row ref is %j', async (rowRef) => {

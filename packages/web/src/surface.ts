@@ -45,7 +45,7 @@ import {
   type ViewportSize,
 } from '@e2e-dev/core/engine';
 import { matchesText } from '@e2e-dev/core/engine';
-import { classifyActionError, classifyInputError, dispatchLocatorAction, dispatchPointerAction } from './actions.ts';
+import { classifyActionError, classifyInputError, dispatchLocatorAction, dispatchPointerAction, refuseRemoteKey } from './actions.ts';
 import { BrowserConnection, connectCdp, type BrowserName } from './browser-connection.ts';
 import { AttemptSession, type AttemptTab, type StorageState } from './attempt-session.ts';
 import type { CdpEndpointResolver } from './cdp-recovery.ts';
@@ -1114,6 +1114,7 @@ export class PlaywrightSurface {
   pressKey(key: string, operation: OperationContext): Promise<void> {
     return this.acted(operation, this.guard(operation, 'keyboard.press', () => {
       this.requireSession().requireObservation();
+      refuseRemoteKey(key);
       return this.requirePage().keyboard.press(key);
     }, classifyInputError));
   }

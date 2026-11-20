@@ -821,7 +821,9 @@ await screen.getByRole('textbox', 'Notes').press('ControlOrMeta+a');
 ```
 
 A key is zero or more modifiers and one key, joined with `+`, as the
-[key grammar](/reference/engine#keys) lists them. `Shift++` presses `+`.
+[key grammar](/reference/engine#keys) lists them. `Shift++` presses `+`. On a TV, `menu`, `home`, `play`, and the
+other lowercase [remote keys](/reference/engine#keys) press the remote's
+button; the web engine refuses them.
 
 | Throws | When |
 | --- | --- |

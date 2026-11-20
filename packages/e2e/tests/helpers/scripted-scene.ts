@@ -65,7 +65,7 @@ export interface Scene {
   perform(id: string, action: LocatorAction): void;
   /** `keyboard.type` into the focused field. */
   type(text: string, replace: boolean): void;
-  /** `keyboard.press` on the focused field. */
+  /** `keyboard.press` on the focused field; a TV remote button runs the focused node's hook instead. */
   press(key: string): void;
 }
 
@@ -149,7 +149,7 @@ export function createScene(build: (stage: Stage) => ScriptedNode[], initialLoca
   /** Applies one key of the contract grammar to a node's value the way a field would. */
   const applyKey = (node: ScriptedNode, key: string): void => {
     const parsed = parseKey(key);
-    if (parsed === undefined || !TYPABLE_ROLES.has(node.role ?? '')) return;
+    if (parsed === undefined || parsed.key.kind === 'remote' || !TYPABLE_ROLES.has(node.role ?? '')) return;
     const value = node.value ?? '';
     if (parsed.key.kind === 'named') {
       if (parsed.key.name === 'Backspace') node.value = value.slice(0, -1);
@@ -238,6 +238,12 @@ export function createScene(build: (stage: Stage) => ScriptedNode[], initialLoca
       node.value = replace ? text : `${node.value ?? ''}${text}`;
     },
     press(key) {
+      if (parseKey(key)?.key.kind === 'remote') {
+        // A TV remote button reaches whatever view holds focus, editable or not.
+        const node = allNodes().find((entry) => entry.states?.focused === true);
+        node?.on?.({ kind: 'press', key }, node);
+        return;
+      }
       applyKey(focused(), key);
     },
   };

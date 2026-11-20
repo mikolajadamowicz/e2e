@@ -1,7 +1,7 @@
 /** Locator action dispatch for the Playwright engine. */
 
 import type { ElementHandle, Page } from 'playwright-core';
-import { Deadline, EngineError, pollCondition, type KeyModifier, type LocatorAction, type NodeRef, type PointerAction, type ViewportPoint } from '@e2e-dev/core/engine';
+import { Deadline, EngineError, parseKey, pollCondition, type KeyModifier, type LocatorAction, type NodeRef, type PointerAction, type ViewportPoint } from '@e2e-dev/core/engine';
 import {
   asActionable,
   isClassified,
@@ -272,6 +272,15 @@ function isFileInput(element: ElementHandle<Element>): Promise<boolean> {
 }
 
 /**
+ * A browser has no TV remote, so the grammar's remote buttons are refused
+ * before Playwright reads `home` as a key it does not know.
+ */
+export function refuseRemoteKey(key: string): void {
+  if (parseKey(key)?.key.kind !== 'remote') return;
+  throw new EngineError('UNSUPPORTED_CAPABILITY', `"${key}" is a TV remote button, and a browser has no remote`, { retryable: false });
+}
+
+/**
  * Dispatches one deterministic locator action onto a Playwright target with the
  * platform's own actionability checks. `lookup` resolves the second ref of a
  * drag; everything else needs only the target.
@@ -306,6 +315,7 @@ export async function dispatchLocatorAction(
     case 'press':
       // Playwright spells keys as the contract grammar does; the harness has
       // already refused anything outside it, so the key is pressed as given.
+      refuseRemoteKey(action.key);
       await locator.press(action.key, { timeout });
       return;
     case 'check':

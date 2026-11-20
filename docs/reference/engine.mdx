@@ -1282,6 +1282,7 @@ The key grammar of `press`, shared by every engine, and its parser.
 ```ts
 parseKey('Control+a'); // { modifiers: ['Control'], key: { kind: 'char', char: 'a' } }
 parseKey('Shift+Tab'); // { modifiers: ['Shift'], key: { kind: 'named', name: 'Tab' } }
+parseKey('menu'); // { modifiers: [], key: { kind: 'remote', name: 'menu' } }
 parseKey('Ctrl+a'); // undefined: Ctrl is not a modifier of the grammar
 ```
 
@@ -1296,8 +1297,13 @@ parseKey('Ctrl+a'); // undefined: Ctrl is not a modifier of the grammar
  *   `Delete`, `ArrowUp`..., `Home`, `End`, `PageUp`, `PageDown`, `Insert`,
  *   `Space`, `F1`..`F12`).
  * - Any single printable character (`a`, `A`, `1`, `$`), typed as itself.
+ * - TV remote buttons: those in `REMOTE_KEY_NAMES` (`menu`, `home`, `play`,
+ *   `pause`, `play-pause`, `stop`, `rewind`, `fast-forward`, `next`,
+ *   `previous`), lowercase so none is mistaken for the keyboard key of the
+ *   same word (`home` is the remote's Home button, `Home` the keyboard's line
+ *   start). A remote button takes no modifier.
  *
- * `Control+a`, `Shift+Tab`, `Enter`, `$`. A platform without a key maps it
+ * `Control+a`, `Shift+Tab`, `Enter`, `$`, `menu`. A platform without a key maps it
  * or throws `UNSUPPORTED_CAPABILITY`; it never reinterprets the spelling.
  * `parseKey` is the one parser, exported so no engine carries its own.
  */
@@ -1335,12 +1341,18 @@ export const KEY_NAMES = [
   'F12',
 ] as const;
 
-/** One parsed `press` key: its modifiers and either a named key or a single character. */
+/** The TV remote buttons of the key grammar; an engine with no remote refuses them with `UNSUPPORTED_CAPABILITY`. */
+export const REMOTE_KEY_NAMES = ['menu', 'home', 'play', 'pause', 'play-pause', 'stop', 'rewind', 'fast-forward', 'next', 'previous'] as const;
+
+/** One parsed `press` key: its modifiers and either a named key, a single character, or a TV remote button. */
 export interface ParsedKey {
-  /** Modifiers, in the order written. */
+  /** Modifiers, in the order written; always empty for a remote button. */
   readonly modifiers: readonly KeyModifier[];
   /** The key itself. */
-  readonly key: { readonly kind: 'named'; readonly name: KeyName } | { readonly kind: 'char'; readonly char: string };
+  readonly key:
+    | { readonly kind: 'named'; readonly name: KeyName }
+    | { readonly kind: 'char'; readonly char: string }
+    | { readonly kind: 'remote'; readonly name: RemoteKeyName };
 }
 
 export function parseKey(key: string): ParsedKey | undefined;

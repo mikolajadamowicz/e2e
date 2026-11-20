@@ -233,6 +233,15 @@ describe('dispatchLocatorAction', () => {
     },
   );
 
+  it('refuses a TV remote key with UNSUPPORTED_CAPABILITY and presses nothing', async () => {
+    const { locator, target } = stubLocator();
+    await expect(dispatchLocatorAction(target, { kind: 'press', key: 'menu' }, OPERATION, lookup)).rejects.toMatchObject({
+      code: 'UNSUPPORTED_CAPABILITY',
+      message: expect.stringContaining('TV remote'),
+    });
+    expect(locator.press).not.toHaveBeenCalled();
+  });
+
   it('uploads through a file chooser it awaits before clicking a button', async () => {
     const { element, target, page, chooser, calls } = stubUpload(false);
     await dispatchLocatorAction(target, { kind: 'setInputFiles', paths: ['/tmp/a.txt'] }, OPERATION, lookup);
