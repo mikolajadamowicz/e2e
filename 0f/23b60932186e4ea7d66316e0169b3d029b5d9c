@@ -1,0 +1,19 @@
+packages/e2e/tests/unit/agent-grammar-tools.test.ts
+  s_4ff4388a75543e::t_303513530b308d 539-540
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "0f23b60932186e4ea7d66316e0169b3d029b5d9c",
+  "prompts": {},
+  "sessions": {
+    "s_4ff4388a75543e": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "90f391cb-f507-4a55-b9e4-683543772e2c",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mikolaj Adamowicz <mikolaj.adamowicz@homesoft.app>"
+    }
+  }
+}
