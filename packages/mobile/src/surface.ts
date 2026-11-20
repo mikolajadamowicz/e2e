@@ -1594,6 +1594,9 @@ export class AgentDeviceSurface {
     if (parsed.modifiers.length > 0) {
       throw unsupported(`agent-device cannot hold ${parsed.modifiers.join('+')} on a device surface; press the key alone`);
     }
+    // A remote button goes to the device, not the node: no focus tap, and no
+    // settle options, as for every key the device's command path sends; the
+    // step's own change wait reads the screen it leaves.
     if (parsed.key.kind === 'remote') return pressRemote(client, parsed.key.name, input);
     const enter = parsed.key.kind === 'named' && parsed.key.name === 'Enter';
     if (!enter && parsed.key.kind === 'named' && parsed.key.name !== 'Space') {

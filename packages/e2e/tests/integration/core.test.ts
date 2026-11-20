@@ -428,7 +428,7 @@ describe('e2e/core', { timeout: 60_000 }, () => {
       expect(presses).toEqual([['press', 'menu'], ['press', 'menu']]);
       const entry = readdirSync(cacheDir, { recursive: true }).find((file) => String(file).endsWith('.json'));
       const { payload } = JSON.parse(readFileSync(path.join(cacheDir, String(entry)), 'utf8')) as { payload: { actions: unknown[] } };
-      expect(payload.actions).toEqual([{ name: 'pressKey', summary: expect.any(String), key: 'menu' }]);
+      expect(payload.actions).toEqual([{ name: 'pressKey', summary: 'press "menu" on the remote', key: 'menu' }]);
     });
 
     it('keeps a confirmed recording when the host closes the session, and after a failure the program caught', async () => {

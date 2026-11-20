@@ -183,7 +183,8 @@ export interface Device {
    * `'up'` or `'select'`; the list is `REMOTE_KEY_NAMES`) on the device, with
    * no node to address: what `locator.press(key)` does on any node. Android
    * TV takes every button and an Apple TV the D-pad, `back`, `menu`, and
-   * `home`; any other button or device is `UNSUPPORTED_CAPABILITY`. A name
+   * `home`, where `back` and `menu` are the same Siri Remote button; any
+   * other button or device is `UNSUPPORTED_CAPABILITY`. A name
    * outside the list is `INVALID_ARGUMENT`.
    */
   pressRemote(key: RemoteKeyName): Promise<void>;

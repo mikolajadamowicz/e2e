@@ -7,7 +7,8 @@ import type { InputBudget } from './support.ts';
 type TvRemoteButton = Parameters<AgentDeviceClient['command']['tvRemote']>[0]['button'];
 
 /**
- * agent-device's button for each remote key. `play` is the dedicated Play
+ * agent-device's button for each remote key. On an Apple TV, `back` and
+ * `menu` press the same Siri Remote button, which goes back. `play` is the dedicated Play
  * button; the one that toggles, which most Android TV remotes carry, is
  * `play-pause`. agent-device serves `tv-remote` on Android TV and tvOS
  * targets only, so any other device refuses every button, and an Apple TV
