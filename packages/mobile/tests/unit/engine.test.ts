@@ -1385,6 +1385,12 @@ describe('perform', () => {
   });
 
   it.each([
+    ['up', 'up'],
+    ['down', 'down'],
+    ['left', 'left'],
+    ['right', 'right'],
+    ['select', 'select'],
+    ['back', 'back'],
     ['menu', 'menu'],
     ['home', 'home'],
     ['play', 'media-play'],
@@ -1407,6 +1413,24 @@ describe('perform', () => {
       ['command.tvRemote', { button }],
       ['command.tvRemote', { button }],
     ]);
+  });
+
+  it.each([
+    ['Home', 'On a TV, the remote\'s button is "home"'],
+    ['ArrowUp', 'On a TV, the remote\'s button is "up"'],
+    ['Tab', 'On a TV, press a remote button by its lowercase name: up, down, left, right, select, back, menu, home, play'],
+  ])('refuses the keyboard key %s and names the remote key to press instead', async (key, next) => {
+    const h = harness();
+    await openAttempt(h);
+    await expect(h.engine.keyboard!.press(key, operation())).rejects.toMatchObject({
+      code: 'UNSUPPORTED_CAPABILITY',
+      message: expect.stringContaining(next),
+    });
+    const about = await observed(h, 'About');
+    await expect(h.engine.perform!(about.ref, { kind: 'press', key }, operation())).rejects.toMatchObject({
+      code: 'UNSUPPORTED_CAPABILITY',
+      message: expect.stringContaining(next),
+    });
   });
 
   it('fails a remote key the device has no button for with UNSUPPORTED_CAPABILITY', async () => {
@@ -1687,6 +1711,21 @@ describe('device fixture', () => {
     } as unknown as EngineFixtureContext;
     return h.engine.fixtures!['device']!(context) as Device;
   }
+
+  it('presses a remote key with no node through device.pressRemote, and refuses a name outside the list', async () => {
+    const h = harness();
+    await openAttempt(h);
+    const device = fixture(h);
+    const before = h.fake.calls.length;
+    await device.pressRemote('play-pause');
+    await device.pressRemote('select');
+    expect(h.fake.calls.slice(before).map((call) => [call.method, call.args])).toEqual([
+      ['command.tvRemote', { button: 'media-play-pause' }],
+      ['command.tvRemote', { button: 'select' }],
+    ]);
+    await expect(device.pressRemote('Menu' as never)).rejects.toMatchObject({ code: 'INVALID_ARGUMENT', message: expect.stringContaining('not a remote key') });
+    expect(h.fake.calls).toHaveLength(before + 2);
+  });
 
   describe('unstable_raw', () => {
     const BOOTED = { platform: 'ios', id: '5A1C0DE5-0000-4000-8000-000000000001', device: 'iPhone 17 Pro', booted: true };
@@ -2062,7 +2101,7 @@ describe('device fixture', () => {
     expect(h.fake.lastArgs('interactions.scroll')).toEqual({ direction: 'down', postGestureStabilization: false });
   });
 
-  it('counts a back, home, alert, keyboard, rotation, or fold as an action, so a control that arrives with it waits out the transition budget', async () => {
+  it('counts a back, home, remote press, alert, keyboard, rotation, or fold as an action, so a control that arrives with it waits out the transition budget', async () => {
     autoAdvanceTimers();
     const h = harness({ transition: 120 });
     await openAttempt(h);
@@ -2071,6 +2110,7 @@ describe('device fixture', () => {
     for (const change of [
       () => device.back(),
       () => device.home(),
+      () => device.pressRemote('menu'),
       () => device.alert('accept'),
       () => device.dismissKeyboard(),
       () => device.setOrientation('landscape-left'),

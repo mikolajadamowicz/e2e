@@ -20,7 +20,6 @@ import {
   EngineError,
   KEY_NAMES,
   parseKey,
-  REMOTE_KEY_NAMES,
   raceAbort,
   rejectUnknownKeys,
   stopProviderRecording,
@@ -64,7 +63,7 @@ import {
   type ProjectedSnapshot,
 } from './nodes.ts';
 import { keyboardDragStart } from './keyboard.ts';
-import { pressRemote } from './remote.ts';
+import { cannotPressNamedKey, pressRemote, REMOTE_KEYS } from './remote.ts';
 import { DEVICE_PERMISSIONS, type AgentDeviceClient, type ClientFactory, type DevicePermission, type LaunchPermissions, type MobileOptions, type PermissionState } from './options.ts';
 import { maskPng } from './png.ts';
 import { mobileDoctor } from './doctor.ts';
@@ -1589,7 +1588,7 @@ export class AgentDeviceSurface {
     const parsed = parseKey(key);
     if (parsed === undefined) {
       throw unsupported(
-        `"${key}" is not a key: press takes one key in the form [Modifier+]...Key, a named key (${KEY_NAMES.join(', ')}), one character, or a TV remote button (${REMOTE_KEY_NAMES.join(', ')})`,
+        `"${key}" is not a key: press takes one key in the form [Modifier+]...Key, a named key (${KEY_NAMES.join(', ')}), one character, or a TV remote button (${REMOTE_KEYS.join(', ')})`,
       );
     }
     if (parsed.modifiers.length > 0) {
@@ -1598,7 +1597,7 @@ export class AgentDeviceSurface {
     if (parsed.key.kind === 'remote') return pressRemote(client, parsed.key.name, input);
     const enter = parsed.key.kind === 'named' && parsed.key.name === 'Enter';
     if (!enter && parsed.key.kind === 'named' && parsed.key.name !== 'Space') {
-      throw unsupported(`agent-device cannot press ${parsed.key.name} on a device surface; only Enter, Space, and single characters reach the soft keyboard, and TV remote buttons the remote`);
+      throw unsupported(cannotPressNamedKey(parsed.key.name));
     }
     // A key reaches the field through the soft keyboard, which is up only
     // while the field holds focus.
@@ -1647,7 +1646,7 @@ export class AgentDeviceSurface {
     const parsed = parseKey(key);
     if (parsed === undefined) {
       throw unsupported(
-        `"${key}" is not a key: press takes one key in the form [Modifier+]...Key, a named key (${KEY_NAMES.join(', ')}), one character, or a TV remote button (${REMOTE_KEY_NAMES.join(', ')})`,
+        `"${key}" is not a key: press takes one key in the form [Modifier+]...Key, a named key (${KEY_NAMES.join(', ')}), one character, or a TV remote button (${REMOTE_KEYS.join(', ')})`,
       );
     }
     if (parsed.modifiers.length > 0) {
@@ -1663,7 +1662,7 @@ export class AgentDeviceSurface {
       const text = parsed.key.kind === 'char' ? parsed.key.char : ' ';
       await this.command('keyboard.press', (client) => input.send(() => client.interactions.type({ text })), operation.signal);
     } else {
-      throw unsupported(`agent-device cannot press ${parsed.key.name} on a device surface; only Enter, Space, and single characters reach the soft keyboard, and TV remote buttons the remote`);
+      throw unsupported(cannotPressNamedKey(parsed.key.name));
     }
     this.markAction(before);
   }

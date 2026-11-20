@@ -1297,11 +1297,14 @@ parseKey('Ctrl+a'); // undefined: Ctrl is not a modifier of the grammar
  *   `Delete`, `ArrowUp`..., `Home`, `End`, `PageUp`, `PageDown`, `Insert`,
  *   `Space`, `F1`..`F12`).
  * - Any single printable character (`a`, `A`, `1`, `$`), typed as itself.
- * - TV remote buttons: those in `REMOTE_KEY_NAMES` (`menu`, `home`, `play`,
- *   `pause`, `play-pause`, `stop`, `rewind`, `fast-forward`, `next`,
- *   `previous`), lowercase so none is mistaken for the keyboard key of the
- *   same word (`home` is the remote's Home button, `Home` the keyboard's line
- *   start). A remote button takes no modifier.
+ * - TV remote buttons: those in `REMOTE_KEY_NAMES` (the D-pad `up`, `down`,
+ *   `left`, `right`, `select`, then `back`, `menu`, `home`, and the media
+ *   keys `play`, `pause`, `play-pause`, `stop`, `rewind`, `fast-forward`,
+ *   `next`, `previous`), lowercase so none is mistaken for the keyboard key
+ *   of the same word (`home` is the remote's Home button, `Home` the
+ *   keyboard's line start). A remote button takes no modifier, and an engine
+ *   receives it like any other key: one with no remote refuses it with
+ *   `UNSUPPORTED_CAPABILITY` rather than pressing a keyboard key.
  *
  * `Control+a`, `Shift+Tab`, `Enter`, `$`, `menu`. A platform without a key maps it
  * or throws `UNSUPPORTED_CAPABILITY`; it never reinterprets the spelling.
@@ -1342,7 +1345,24 @@ export const KEY_NAMES = [
 ] as const;
 
 /** The TV remote buttons of the key grammar; an engine with no remote refuses them with `UNSUPPORTED_CAPABILITY`. */
-export const REMOTE_KEY_NAMES = ['menu', 'home', 'play', 'pause', 'play-pause', 'stop', 'rewind', 'fast-forward', 'next', 'previous'] as const;
+export const REMOTE_KEY_NAMES = [
+  'up',
+  'down',
+  'left',
+  'right',
+  'select',
+  'back',
+  'menu',
+  'home',
+  'play',
+  'pause',
+  'play-pause',
+  'stop',
+  'rewind',
+  'fast-forward',
+  'next',
+  'previous',
+] as const;
 
 /** One parsed `press` key: its modifiers and either a named key, a single character, or a TV remote button. */
 export interface ParsedKey {
@@ -1357,6 +1377,12 @@ export interface ParsedKey {
 
 export function parseKey(key: string): ParsedKey | undefined;
 ```
+
+An engine reaches every key, remote buttons included, through
+`keyboard.press` and the `press` action. One that passes keys through to its
+platform checks `parseKey(key)?.key.kind === 'remote'` first and refuses
+those with `UNSUPPORTED_CAPABILITY` unless it presses them on a remote, as
+`@e2e-dev/mobile` does.
 
 ### App
 
@@ -2373,9 +2399,9 @@ return context.fixture('printer', printer, { print: { kind: 'resource' } });
 `NodeRef`, `SemanticNode`, `ViewportPoint`, `ViewportSize`,
 `ObservationPixels`, `LocatorAction`, `LocatorActionKind`, `PointerAction`,
 `PointerActionKind`, `ScrollDirection`, `Momentum`, `SelectOption`, `Key`,
-`KeyModifier`, `KeyName`, `ParsedKey`, `ENGINE_SPI_VERSION`,
+`KeyModifier`, `KeyName`, `RemoteKeyName`, `ParsedKey`, `ENGINE_SPI_VERSION`,
 `LOCATOR_ACTION_KINDS`, `POINTER_ACTION_KINDS`, `KEY_MODIFIERS`,
-`KEY_NAMES`, `parseKey`, `ENGINE_ERROR_CODES`, `RETRYABLE_ENGINE_ERROR_CODES`,
+`KEY_NAMES`, `REMOTE_KEY_NAMES`, `parseKey`, `ENGINE_ERROR_CODES`, `RETRYABLE_ENGINE_ERROR_CODES`,
 `Secret`, `isSecret`, `TextMatch`, `JsonValue`, `JsonValueRules`,
 `ResolveExpressionOptions`, `PollConditionOptions`, `WithoutUndefined`,
 `FixtureOperation`, `EngineIsolation`, `OBSERVED_NAME_LIMIT`, and `OBSERVED_TEXT_LIMIT` are

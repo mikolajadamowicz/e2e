@@ -13,7 +13,7 @@ import { redactToolResult } from './redaction.ts';
 import type { StepResult, Tool, ToolSet } from 'ai';
 import { z } from 'zod';
 import { isTapActionName, type NodeActionName, type PointActionName } from '../cache/trace.ts';
-import { KEY_MODIFIERS, type KeyModifier } from '../engine/contract.ts';
+import { KEY_MODIFIERS, parseKey, REMOTE_KEY_NAMES, type KeyModifier } from '../engine/contract.ts';
 import type { ViewportPoint } from '../engine/surface.ts';
 import { codedMessage, hasCause, TestError } from '../internal/errors.ts';
 import { VIEWPORT_LIMITS } from '../internal/geometry.ts';
@@ -65,11 +65,35 @@ const MAX_PRESS_TIMES = 20;
  * tree does not record. An unchanged screen after one of these is the normal
  * outcome, not a control that did nothing.
  */
-const FOCUS_ONLY_KEYS = /^(?:(?:Shift|Control|Alt|Meta)\+)*(?:Tab|Arrow(?:Left|Right|Up|Down)|Home|End|PageUp|PageDown)$/i;
+const FOCUS_ONLY_KEYS: ReadonlySet<string> = new Set(['Tab', 'ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Home', 'End', 'PageUp', 'PageDown']);
+/** The TV remote's D-pad: it moves the focus between views, which the tree may not record either. */
+const FOCUS_ONLY_REMOTE_KEYS: ReadonlySet<string> = new Set(['up', 'down', 'left', 'right']);
 
+/**
+ * Whether a key only moves the focus or the caret, read through the key
+ * grammar so the remote's `home`, which leaves the app, is not the keyboard's
+ * `Home`.
+ */
 function movesFocusOnly(key: string): boolean {
-  return FOCUS_ONLY_KEYS.test(key.trim());
+  const parsed = parseKey(key);
+  if (parsed === undefined) return false;
+  if (parsed.key.kind === 'named') return FOCUS_ONLY_KEYS.has(parsed.key.name);
+  return parsed.key.kind === 'remote' && FOCUS_ONLY_REMOTE_KEYS.has(parsed.key.name);
 }
+
+/** Whether a key is a TV remote button, which goes to the device rather than to a node or a field. */
+function isRemoteKey(key: string): boolean {
+  return parseKey(key)?.key.kind === 'remote';
+}
+
+/**
+ * The remote keys, for the press tools of a device target: the model
+ * otherwise reaches for the keyboard's capitalised names.
+ */
+const REMOTE_KEY_HINT = ` On a TV, press the remote's buttons by their lowercase names: ${REMOTE_KEY_NAMES.map((name) => `"${name}"`).join(', ')}. "home" is the remote's Home button; "Home" is the keyboard key.`;
+
+/** The platforms a remote can drive: a TV is an iOS (tvOS) or Android device. */
+const REMOTE_PLATFORMS: ReadonlySet<string> = new Set(['ios', 'android']);
 
 /** The model-pickable codes a blocked verdict accepts; derived, never restated. */
 const MODEL_BLOCKABLE_CODES = MODEL_ERROR_CODES.filter((code) => BLOCKABLE_CODES.has(code));
@@ -470,8 +494,12 @@ export function grammarTools(
       .max(MAX_PRESS_TIMES)
       .optional()
       .describe(`Press the key this many times in this one call, 1 to ${String(MAX_PRESS_TIMES)}; default 1. Use more to extend a selection or move a caret several steps at once.`);
+    const remoteHint = REMOTE_PLATFORMS.has(context.target.platform) ? REMOTE_KEY_HINT : '';
     const pressed = (key: string, count: number, where: string) =>
       count === 1 ? `Pressed ${key} ${where}.` : `Pressed ${key} ${String(count)} times ${where}.`;
+    /** Where a press lands: a remote button goes to the device whatever the target. */
+    const pressedWhere = (key: string, id: string | undefined) =>
+      isRemoteKey(key) ? 'on the remote' : id === undefined ? 'on the focused field' : `on #${id}`;
     // Each repeat is one recorded action against the budget, as a scroll repeat
     // is. The first press addresses the node; the rest go to whatever has focus,
     // since a targeted press refocuses the node first and a repeated Tab would
@@ -488,7 +516,7 @@ export function grammarTools(
           ? 'Send one key (e.g. "Enter", "Escape", "Tab") to one node, or to whatever has focus when target is omitted.'
           : verbs.has('press')
             ? 'Send one key (e.g. "Enter", "Escape", "Tab") to one node.'
-            : 'Send one key (e.g. "Enter", "Escape", "Tab") to whatever has focus.') + selecting,
+            : 'Send one key (e.g. "Enter", "Escape", "Tab") to whatever has focus.') + selecting + remoteHint,
       inputSchema: z.object({
         target: both ? target.optional() : verbs.has('press') ? target : z.undefined().optional(),
         key: z.string().min(1).max(64),
@@ -497,8 +525,8 @@ export function grammarTools(
       execute: ({ target: id, key, times: count }) =>
         acting(
           {
-            done: pressed(key, count ?? 1, id === undefined ? 'on the focused field' : `on #${id}`),
-            attempt: `press ${key} ${id === undefined ? 'on the focused field' : `on #${id}`}`,
+            done: pressed(key, count ?? 1, pressedWhere(key, id)),
+            attempt: `press ${key} ${pressedWhere(key, id)}`,
           },
           () => pressing(key, id, count ?? 1),
           { expectChange: !movesFocusOnly(key) },
@@ -887,14 +915,15 @@ function createPointTools(
       description:
         'Send one key (e.g. "Enter", "Escape", "Tab") to the control at a point in the latest screenshot, for a control the screen does not list.' +
         (keyboard ? ' A listed control under the point gets the key by id; anything else is tapped to focus it and the key goes through the keyboard.' : '') +
-        ' Last resort: when the screen lists the control, press by id.',
+        ' Last resort: when the screen lists the control, press by id.' +
+        (REMOTE_PLATFORMS.has(context.target.platform) ? REMOTE_KEY_HINT : ''),
       inputSchema: z.object({ x, y, key: z.string().min(1).max(64) }),
       execute: ({ x: px, y: py, key }) =>
         atPoint('press_at', px, py, async (point) => {
           const found = await focusAt(point, px, py, 'press_at');
           if (found.kind === 'control') await context.actions.press(found.control, key);
           else await context.actions.pressKey(key);
-          return `Pressed ${key} on ${found.summary}.`;
+          return isRemoteKey(key) ? `Pressed ${key} on the remote.` : `Pressed ${key} on ${found.summary}.`;
         }),
     });
   }

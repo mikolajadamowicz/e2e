@@ -272,19 +272,34 @@ function isFileInput(element: ElementHandle<Element>): Promise<boolean> {
 }
 
 /**
- * A browser has no TV remote, so the grammar's remote buttons are refused
- * before Playwright reads `home` as a key it does not know.
+ * The Playwright spelling of a key in the contract grammar, which Playwright
+ * shares for every keyboard key, so those pass as given. A TV remote button
+ * is in the grammar too, but a browser has no remote: it is refused before
+ * Playwright reads `home` as a key it does not know, naming the keyboard key
+ * of the same word when there is one.
  */
-export function refuseRemoteKey(key: string): void {
-  if (parseKey(key)?.key.kind !== 'remote') return;
-  throw new EngineError('UNSUPPORTED_CAPABILITY', `"${key}" is a TV remote button, and a browser has no remote`, { retryable: false });
+export function playwrightKey(key: string): string {
+  const parsed = parseKey(key);
+  if (parsed?.key.kind !== 'remote') return key;
+  const keyboard = KEYBOARD_FOR_REMOTE[parsed.key.name];
+  throw new EngineError(
+    'UNSUPPORTED_CAPABILITY',
+    `"${key}" is a TV remote button, and a browser has no remote` + (keyboard === undefined ? '' : `; for the keyboard key press "${keyboard}"`),
+    { retryable: false },
+  );
 }
 
-/**
- * Dispatches one deterministic locator action onto a Playwright target with the
- * platform's own actionability checks. `lookup` resolves the second ref of a
- * drag; everything else needs only the target.
- */
+/** The keyboard key a remote button's name most likely meant in a browser. */
+const KEYBOARD_FOR_REMOTE: Readonly<Partial<Record<string, string>>> = {
+  home: 'Home',
+  up: 'ArrowUp',
+  down: 'ArrowDown',
+  left: 'ArrowLeft',
+  right: 'ArrowRight',
+  select: 'Enter',
+  back: 'Escape',
+};
+
 export async function dispatchLocatorAction(
   target: ActionTarget,
   action: LocatorAction,
@@ -313,10 +328,7 @@ export async function dispatchLocatorAction(
       await locator.fill('', { timeout });
       return;
     case 'press':
-      // Playwright spells keys as the contract grammar does; the harness has
-      // already refused anything outside it, so the key is pressed as given.
-      refuseRemoteKey(action.key);
-      await locator.press(action.key, { timeout });
+      await locator.press(playwrightKey(action.key), { timeout });
       return;
     case 'check':
     case 'uncheck':

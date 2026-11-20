@@ -375,11 +375,14 @@ export const POINTER_ACTION_KINDS = [
  *   `Delete`, `ArrowUp`..., `Home`, `End`, `PageUp`, `PageDown`, `Insert`,
  *   `Space`, `F1`..`F12`).
  * - Any single printable character (`a`, `A`, `1`, `$`), typed as itself.
- * - TV remote buttons: those in `REMOTE_KEY_NAMES` (`menu`, `home`, `play`,
- *   `pause`, `play-pause`, `stop`, `rewind`, `fast-forward`, `next`,
- *   `previous`), lowercase so none is mistaken for the keyboard key of the
- *   same word (`home` is the remote's Home button, `Home` the keyboard's line
- *   start). A remote button takes no modifier.
+ * - TV remote buttons: those in `REMOTE_KEY_NAMES` (the D-pad `up`, `down`,
+ *   `left`, `right`, `select`, then `back`, `menu`, `home`, and the media
+ *   keys `play`, `pause`, `play-pause`, `stop`, `rewind`, `fast-forward`,
+ *   `next`, `previous`), lowercase so none is mistaken for the keyboard key
+ *   of the same word (`home` is the remote's Home button, `Home` the
+ *   keyboard's line start). A remote button takes no modifier, and an engine
+ *   receives it like any other key: one with no remote refuses it with
+ *   `UNSUPPORTED_CAPABILITY` rather than pressing a keyboard key.
  *
  * `Control+a`, `Shift+Tab`, `Enter`, `$`, `menu`. A platform without a key maps it
  * or throws `UNSUPPORTED_CAPABILITY`; it never reinterprets the spelling.
@@ -422,7 +425,24 @@ export const KEY_NAMES = [
 export type KeyName = (typeof KEY_NAMES)[number];
 
 /** The TV remote buttons of the key grammar; an engine with no remote refuses them with `UNSUPPORTED_CAPABILITY`. */
-export const REMOTE_KEY_NAMES = ['menu', 'home', 'play', 'pause', 'play-pause', 'stop', 'rewind', 'fast-forward', 'next', 'previous'] as const;
+export const REMOTE_KEY_NAMES = [
+  'up',
+  'down',
+  'left',
+  'right',
+  'select',
+  'back',
+  'menu',
+  'home',
+  'play',
+  'pause',
+  'play-pause',
+  'stop',
+  'rewind',
+  'fast-forward',
+  'next',
+  'previous',
+] as const;
 export type RemoteKeyName = (typeof REMOTE_KEY_NAMES)[number];
 
 /** One parsed `press` key: its modifiers and either a named key, a single character, or a TV remote button. */

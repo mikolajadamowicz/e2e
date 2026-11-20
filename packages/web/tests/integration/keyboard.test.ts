@@ -39,6 +39,16 @@ describe('held keyboard input', () => {
     await surface.dispose({ signal, timeoutMs: 5000 });
     rmSync(projectRoot, { recursive: true, force: true });
   });
+  it('refuses a TV remote key on the focused-key path before Playwright sees it, and still presses the keyboard Home', async () => {
+    const operation = { signal, timeoutMs: 5000, runId: 'held', attemptId: 'held', origin: 'test' as const };
+    await expect(surface.pressKey('menu', operation)).rejects.toMatchObject({ code: 'UNSUPPORTED_CAPABILITY' });
+    await expect(surface.pressKey('home', operation)).rejects.toMatchObject({
+      code: 'UNSUPPORTED_CAPABILITY',
+      message: expect.stringContaining('for the keyboard key press "Home"'),
+    });
+    expect(await browser.evaluate(() => document.querySelector('#events')?.textContent ?? '')).toBe('');
+  });
+
   it('keeps a modifier held across another key and releases it for later input', async () => {
     await browser.keyboard.down('Shift');
     await browser.keyboard.press('KeyB');

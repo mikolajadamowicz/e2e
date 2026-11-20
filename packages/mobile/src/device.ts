@@ -6,8 +6,9 @@
  */
 
 import type { AgentDeviceClient as DeviceSessionClient } from 'agent-device';
-import type { EngineFixtureContext, Locator } from '@e2e-dev/core/engine';
+import type { EngineFixtureContext, Locator, RemoteKeyName } from '@e2e-dev/core/engine';
 import { appLabel, linkLabel, linkTarget } from './links.ts';
+import { pressRemote, requireRemoteKey } from './remote.ts';
 import type { DevicePermission, MobilePlatform, PermissionState } from './options.ts';
 import type { DeviceSelection } from './pool.ts';
 import { unsupported } from './support.ts';
@@ -177,6 +178,15 @@ export interface Device {
   home(): Promise<void>;
   /** Navigates back once (in-app back). */
   back(): Promise<void>;
+  /**
+   * Presses one TV remote button (`'menu'`, `'play-pause'`, the D-pad's
+   * `'up'` or `'select'`; the list is `REMOTE_KEY_NAMES`) on the device, with
+   * no node to address: what `locator.press(key)` does on any node. Android
+   * TV takes every button and an Apple TV the D-pad, `back`, `menu`, and
+   * `home`; any other button or device is `UNSUPPORTED_CAPABILITY`. A name
+   * outside the list is `INVALID_ARGUMENT`.
+   */
+  pressRemote(key: RemoteKeyName): Promise<void>;
   /** Accepts or dismisses the visible system alert. */
   alert(action: 'accept' | 'dismiss'): Promise<void>;
   /**
@@ -331,6 +341,11 @@ export function createDeviceFixture(surface: AgentDeviceSurface, context: Engine
     async back() {
       await surface.screenCommand('device.back', (client) => client.command.back({ ...surface.settleOptions }), context.signal);
     },
+    async pressRemote(key) {
+      requireRemoteKey(key);
+      const input = surface.inputBudget('device.pressRemote', { timeoutMs: context.timeouts.action, signal: context.signal });
+      await surface.screenCommand('device.pressRemote', (client) => pressRemote(client, key, input), context.signal);
+    },
     async alert(action) {
       await surface.screenCommand('device.alert', (client) => client.command.alert({ ...surface.selection(), action }), context.signal);
     },
@@ -369,6 +384,7 @@ export function createDeviceFixture(surface: AgentDeviceSurface, context: Engine
     foregroundApp: action,
     home: action,
     back: action,
+    pressRemote: { ...action, label: (key) => key },
     alert: { ...action, label: (value) => value },
     dismissKeyboard: action,
     clipboard: action,

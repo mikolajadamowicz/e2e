@@ -313,3 +313,49 @@ describe('type_secret leaves the act tool set the same across steps', () => {
     expect(loopCalls[1]!.prompt).toContain('Secrets to fill with type_secret, by name: "admin" (password).');
   });
 });
+
+describe('press on a TV remote key', () => {
+  /** A context whose observation never changes and whose keyboard presses succeed. */
+  function remoteContext(platform: string) {
+    const { context } = fakeExecutorContext({ verbs: ['pressKey'], platform });
+    const observation = { revision: '1', text: '#n1 button "Now playing"', truncated: false, viewport: { width: 1920, height: 1080 } };
+    const pressed: string[] = [];
+    return {
+      pressed,
+      context: {
+        ...context,
+        observe: async () => observation,
+        actions: { ...context.actions, pressKey: async (key: string) => { pressed.push(key); } },
+      },
+    };
+  }
+  const run = async (tools: ToolSet, key: string) => {
+    const execute = tools['press']!.execute as unknown as (input: { key: string }, options: { toolCallId: string; messages: [] }) => Promise<unknown>;
+    return String(await execute({ key }, { toolCallId: 'call', messages: [] }));
+  };
+
+  it('names the remote keys on a device target only', () => {
+    const description = (platform: string) => createGrammarTools(remoteContext(platform).context).press!.description!;
+    expect(description('android')).toContain('"menu", "home", "play"');
+    expect(description('android')).toContain('"home" is the remote\'s Home button; "Home" is the keyboard key.');
+    expect(description('ios')).toContain('"play-pause"');
+    expect(description('web')).not.toContain('remote');
+  });
+
+  it('reports a remote key as pressed on the remote, expects home to change the screen, and lets the D-pad move focus only', async () => {
+    const { context, pressed } = remoteContext('android');
+    const tools = createGrammarTools(context);
+    // The first press shows the whole screen; the later ones read against it.
+    expect(await run(tools, 'select')).toMatch(/^Pressed select on the remote\./);
+    const home = await run(tools, 'home');
+    expect(home).toMatch(/^Pressed home on the remote\./);
+    expect(home).toContain('No listed node changed within the wait after this action');
+    const up = await run(tools, 'up');
+    expect(up).toMatch(/^Pressed up on the remote\./);
+    expect(up).toContain('Screen unchanged since revision');
+    const keyboardHome = await run(tools, 'Home');
+    expect(keyboardHome).toMatch(/^Pressed Home on the focused field\./);
+    expect(keyboardHome).toContain('Screen unchanged since revision');
+    expect(pressed).toEqual(['select', 'home', 'up', 'Home']);
+  });
+});

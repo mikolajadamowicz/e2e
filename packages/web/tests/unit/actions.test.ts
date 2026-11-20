@@ -233,11 +233,14 @@ describe('dispatchLocatorAction', () => {
     },
   );
 
-  it('refuses a TV remote key with UNSUPPORTED_CAPABILITY and presses nothing', async () => {
+  it.each([
+    ['home', '; for the keyboard key press "Home"'],
+    ['menu', ''],
+  ])('refuses the TV remote key %s with UNSUPPORTED_CAPABILITY and presses nothing', async (key, next) => {
     const { locator, target } = stubLocator();
-    await expect(dispatchLocatorAction(target, { kind: 'press', key: 'menu' }, OPERATION, lookup)).rejects.toMatchObject({
+    await expect(dispatchLocatorAction(target, { kind: 'press', key }, OPERATION, lookup)).rejects.toMatchObject({
       code: 'UNSUPPORTED_CAPABILITY',
-      message: expect.stringContaining('TV remote'),
+      message: `"${key}" is a TV remote button, and a browser has no remote${next}`,
     });
     expect(locator.press).not.toHaveBeenCalled();
   });

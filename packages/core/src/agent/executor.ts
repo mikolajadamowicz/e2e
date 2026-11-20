@@ -314,7 +314,16 @@ export interface ExecutorActions {
    * Needs the engine's `keyboard` capability (`typeText` in `target.verbs`).
    */
   typeText(value: string, options?: { readonly replace?: boolean }): Promise<void>;
-  /** Sends one key to whatever holds focus (`pressKey` in `target.verbs`). */
+  /**
+   * Sends one key to whatever holds focus (`pressKey` in `target.verbs`), in
+   * the key grammar of `parseKey`: a TV remote button such as `menu` goes to
+   * the device's remote. A key outside the grammar rejects with
+   * `INVALID_ARGUMENT`; a key the engine or device lacks (a remote button on
+   * a browser or a phone) rejects with `UNSUPPORTED_CAPABILITY`. Catch it
+   * here to fall back: one left to escape `runStep` fails the step, and
+   * `agent.act` reports it as `POLICY_DENIED` with the engine's error as its
+   * `cause`.
+   */
   pressKey(key: string): Promise<void>;
   /** Hides an on-screen keyboard (`dismissKeyboard` in `target.verbs`). */
   dismissKeyboard(): Promise<void>;

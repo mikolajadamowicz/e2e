@@ -20,6 +20,8 @@ export interface FakeExecutorContextOptions {
   readonly tapModifiers?: boolean;
   /** The secrets the step declared; one password by default. */
   readonly secrets?: ExecutorStep['secrets'];
+  /** The target's platform; `web` by default. */
+  readonly platform?: string;
 }
 
 /** Builds the context; `dispatched` names every action or observation a tool body reached. */
@@ -69,7 +71,7 @@ export function fakeExecutorContext(options: FakeExecutorContextOptions = {}): F
       secrets: options.secrets ?? [{ name: 'admin', purpose: 'password' }],
     },
     attempt: { testId: 'test', attemptId: 'attempt', titlePath: [], index: 0, signal, memory: new Map() },
-    target: { name: 'web', platform: 'web', verbs: new Set(options.verbs ?? (Object.keys(actions) as ExecutorVerb[])), tapModifiers: options.tapModifiers ?? false },
+    target: { name: 'web', platform: options.platform ?? 'web', verbs: new Set(options.verbs ?? (Object.keys(actions) as ExecutorVerb[])), tapModifiers: options.tapModifiers ?? false },
     signal,
     model: undefined,
     providerOptions: undefined,
