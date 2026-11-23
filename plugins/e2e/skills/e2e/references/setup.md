@@ -389,6 +389,16 @@ export default {
   it. Android has no such argument: on a hosted device set `language` and
   `locale` on `browserstack()` or `testmu()`, on a local one set the device's
   language.
+- Android TV or Apple TV: a test presses the remote with
+  `device.pressRemote(key)`, where `key` is one of `up`, `down`, `left`,
+  `right`, `select`, `back`, `menu`, `home`, `play`, `pause`, `play-pause`,
+  `stop`, `rewind`, `fast-forward`, `next`, or `previous`. An Apple TV takes
+  the D-pad, `back`, `menu`, and `home` only. A button the device lacks is
+  `UNSUPPORTED_CAPABILITY`. For agent steps, add `tvTools` from
+  `@e2e-dev/mobile/tools` beside `mobileTools` (`tools: { ...mobileTools(tv),
+  ...tvTools(tv) }`) to get a `tv_remote` tool. Tools are offered by
+  platform, so when a phone target shares the TV's platform, put `tvTools` on
+  a named agent and select it on the TV tests.
 - One worker per device. No `device`: every booted simulator or emulator of
   the platform, and every reachable paired iPhone or iPad or connected Android phone, is the pool, up to `workers`,
   minus devices another agent-device session holds (one another session takes while `prepare` boots it, starts the runner, or opens the app is swapped for the next free one, or its worker dropped when none is free, unless a short-lived agent-device command only had it busy; none booted: agent-device boots
