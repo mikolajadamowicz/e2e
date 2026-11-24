@@ -1,0 +1,19 @@
+docs/mobile.mdx
+  s_37caca362bf421::t_55b754a113069f 533,537,540-543
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "8a9a243d460b45dccf96e8bffe1a9bd12ca9e02d",
+  "prompts": {},
+  "sessions": {
+    "s_37caca362bf421": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1e37c13a-e268-4623-b6c9-a9fde070fab6",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mikolaj Adamowicz <mikolaj.adamowicz@homesoft.app>"
+    }
+  }
+}
